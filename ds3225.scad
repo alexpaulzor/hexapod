@@ -1,0 +1,92 @@
+
+ds3225_l = 41;
+ds3225_w = 20;
+ds3225_h = 41.25;
+ds3225_flange_l = 54.5;
+ds3225_flange_z = 28;
+ds3225_flange_h = 5;
+ds3225_flange_hole_ir = 3.5/2;
+ds3225_flange_holes_c_c = [49.5, 10];
+ds3225_axle_flange_offset = 17.25;
+
+ds3225_horn_l = 35.2;
+ds3225_horn_w = 8;
+ds3225_horn_h = 6.2;
+ds3225_horn_d = 3.5;
+ds3225_horn_hole_ir = 3/2;
+ds3225_horn_or = 15/2;
+ds3225_horn_hole_x = [0, 9, 20, 24];
+
+module ds3225_horn_holes() {
+	for (x=ds3225_horn_hole_x) {
+		translate([x, 0, 0])
+			cylinder(r=ds3225_horn_hole_ir, h=ds3225_horn_h, $fn=24, center=true);
+	}
+}
+
+module ds3225_horn() {
+	difference() {
+		union() {
+			cylinder(r=ds3225_horn_or, h=ds3225_horn_h, $fn=36);
+			translate([ds3225_horn_or/2-2, 0, 0])
+				cylinder(r=ds3225_horn_or, h=ds3225_horn_h, $fn=36);
+			translate([ds3225_horn_or-3, 0, 0])
+				cylinder(r=ds3225_horn_or, h=ds3225_horn_h, $fn=36);
+			translate([0, -ds3225_horn_w/2, 0])
+				cube([
+					ds3225_horn_l - ds3225_horn_or - ds3225_horn_w/2,
+					ds3225_horn_w,
+					ds3225_horn_h]);
+			translate([ds3225_horn_l - ds3225_horn_or - ds3225_horn_w/2, 0, 0])
+				cylinder(r=ds3225_horn_w/2, h=ds3225_horn_h, $fn=24);
+		}
+		ds3225_horn_holes();
+	}
+}
+
+// ! ds3225_horn();
+
+module ds3225_center_to_horn() {
+	translate([
+		ds3225_axle_flange_offset-ds3225_flange_l/2, 
+		0, -ds3225_h/2])
+	children();
+}
+
+module ds3225(rotation=0, show_model=false) {
+	ds3225_center_to_horn() {
+		if (show_model) {
+			% import("DS3225.stl");
+		} else {
+			cube([ds3225_l, ds3225_w, ds3225_h], center=true);
+		}
+	}
+	translate([0, 0, 2])  // TODO: measure discrepancy vs expected and compensate here
+		rotate([0, 0, rotation]) {
+		ds3225_horn();
+		children();
+	}
+}
+
+// !ds3225();
+module ds3225_horn_to_flange() {
+	translate([0, 0, ds3225_h - ds3225_flange_z]) 
+	children();
+}
+
+module ds3225_holes() {
+	ds3225_center_to_horn() {
+		for (x=[-1, 1]) {
+			for (y=[-1, 1]) {
+				translate([
+					x * ds3225_flange_holes_c_c[0]/2,
+					y * ds3225_flange_holes_c_c[1]/2,
+					0])
+				cylinder(r=ds3225_flange_hole_ir, h=2*ds3225_h, $fn=36, center=true);
+			}
+		}
+		// cube([ds3225_l + 1, ds3225_w + 1, ds3225_h], center=true);
+	}
+}
+
+// !ds3225();

@@ -1,29 +1,4 @@
-t2020_w = 20;
-t2020_notch_w = 6;
-t2020_notch_d = 6;
-t2020_hole_ir = 5/2;
-
-module t2020(length=100) {
-    translate([0, 0, -length/2])
-    linear_extrude(length) {
-        difference() {
-            square([t2020_w, t2020_w], center=true);
-            for (i=[0:3]) {
-                rotate([0, 0, 90 * i]) {
-                    translate([t2020_w/2 - t2020_notch_d / 2, 0, 0]) {
-                        square([t2020_notch_d, t2020_notch_w], center=true);
-                    }
-                }
-            }
-            circle(r=t2020_hole_ir);
-        }
-    }
-}
-
-module t2020_hole(length) {
-    t2020(length);
-    cube([t2020_w - 2, t2020_w - 2, length+1], center=true);
-}
+include <hardware.scad>;
 
 bracket_h = 2;
 bracket_or = 50;
@@ -140,41 +115,119 @@ module femur_base_bracket() {
 
 }
 
-femur_base_bracket();
+// femur_base_bracket();
 
-actuator_motor_h = 98;
-actuator_motor_or = 15;
-actuator_lower_or = 15;
-actuator_lower_h = 350;  // TODO: measure
-actuator_bracket_w = 15;
-actuator_hole_ir = 3;
-actuator_upper_or = 10;
-actuator_min_c_c = 370;
-actuator_max_c_c = 620;
-actuator_stroke = actuator_max_c_c - actuator_min_c_c;
-
-module actuator(pos=0) {
-	difference() {
-		cube([actuator_bracket_w, actuator_bracket_w, actuator_bracket_w], center=true);
-		cylinder(r=actuator_hole_ir, h=actuator_bracket_w, center=true);
-	}
-	translate([actuator_bracket_w/2, 0, 0])
-		rotate([0, 90, 0])
-		cylinder(r=actuator_lower_or, h=actuator_lower_h);
-	translate([actuator_bracket_w/2, actuator_lower_or + actuator_motor_or, 0])
-		rotate([0, 90, 0])
-		cylinder(r=actuator_lower_or, h=actuator_motor_h);
-	# translate([actuator_min_c_c + pos - actuator_stroke - 3*actuator_bracket_w/2, 0, 0])
-		rotate([0, 90, 0])
-		cylinder(r=actuator_upper_or, h=actuator_stroke + actuator_bracket_w);
-	translate([actuator_min_c_c + pos, 0, 0])
-		difference() {
-			cube([actuator_bracket_w, actuator_bracket_w, actuator_bracket_w], center=true);
-			cylinder(r=actuator_hole_ir, h=actuator_bracket_w, center=true);
-		}
+knee_angle = 180 - 2 * femur_angle;
+knee_top_w = 40;
+knee_top_l = actuator_bracket_l;
+module knee_top() {
 	
+	difference() {
+		union() {
+			translate([-10, -knee_top_w/2, 0])
+				cube([knee_top_l, knee_top_w, bracket_h]);
+			translate([10, knee_top_w/2, 0])
+				rotate([0, 0, knee_angle/2])
+				translate([0, -20, 0])
+				cube([knee_top_l-20, 20, bracket_h]);
+			translate([10, -knee_top_w/2, 0])
+				rotate([0, 0, -knee_angle/2])
+				cube([knee_top_l-20, 20, bracket_h]);
+		}
+		for (x=[0, actuator_bracket_hole_c_c])
+			translate([x, 0, 0])
+			cylinder(r=bracket_hole_or+0.5, h=bracket_h*2, $fn=48);
+		for (i=[-1, 1]) {
+			translate([0, i*10, 0]) {
+				cylinder(r=bracket_hole_or, h=bracket_h*2, $fn=48);
+				# translate([10, 0, 0])
+					rotate([0, 0, i*knee_angle/2])
+					for (x=[10:20:40])
+					translate([x, 0, 0])
+					cylinder(r=bracket_hole_or, h=bracket_h*2, $fn=48);
+			}
+		}
+	}
+	% translate([0, 0, bracket_h])
+		actuator_bracket();
+	% translate([10, -10, 0])
+		rotate([0, 0, -knee_angle/2])
+		translate([60, 0, -10])
+		rotate([0, 90, 0])
+		t2020(120);
+	% translate([0, 0,-10])
+		rotate([90, 0, 0])
+		t2020(50);
+	% translate([10, 10, 0])
+		rotate([0, 0, knee_angle/2])
+		translate([60, 0, -10])
+		rotate([0, 90, 0])
+		t2020(120);
 }
 
+// knee_top();
+
+knee_bottom_w = 40;
+knee_bottom_l = sk8_flange_w + 10;
+knee_bottom_sk8_gap = 28;
+module knee_bottom() {
+	difference() {
+		union() {
+			translate([-10, -knee_bottom_w/2, 0])
+				cube([knee_bottom_l, knee_bottom_w, bracket_h]);
+			translate([10, knee_bottom_w/2, 0])
+				rotate([0, 0, knee_angle/2])
+				translate([0, -20, 0])
+				cube([knee_bottom_l-20, 20, bracket_h]);
+			translate([10, -knee_bottom_w/2, 0])
+				rotate([0, 0, -knee_angle/2])
+				cube([knee_bottom_l-20, 20, bracket_h]);
+		}
+		for (i=[-1, 1]) {
+			// translate([0, i*10, 0]) {
+			// 	// for (x=[0, sk8_hole_c_c])
+			// 	// 	translate([x, 0, 0])
+			// 	// 	cylinder(r=bracket_hole_or, h=bracket_h*2, $fn=48);
+			// 	* cylinder(r=bracket_hole_or, h=bracket_h*2, $fn=48);
+			// 	* translate([10, 0, 0])
+			// 		rotate([0, 0, i*knee_angle/2])
+			// 		for (x=[10:20:40])
+			// 		translate([x, 0, 0])
+			// 		cylinder(r=bracket_hole_or, h=bracket_h*2, $fn=48);
+			// }
+			# translate([0, i*knee_bottom_sk8_gap/2, 0]) {
+				for (x=[0, sk8_hole_c_c])
+					translate([x, 0, 0])
+					cylinder(r=bracket_hole_or, h=100, center=true, $fn=48);
+			}
+		}
+
+				
+	}
+	// % translate([0, 0, bracket_h])
+	// 	actuator_bracket();
+	% for (i=[-1, 1])
+			// translate([0, , 0])
+		translate([sk8_hole_c_c/2, i*knee_bottom_sk8_gap/2, sk8_c_h + bracket_h])
+		rotate([0, 0, 90])
+		sk8();
+	% translate([10, -10, 0])
+		rotate([0, 0, -knee_angle/2])
+		translate([60, 0, -10])
+		rotate([0, 90, 0])
+		t2020(120);
+	% translate([0, 0,-10])
+		rotate([90, 0, 0])
+		t2020(50);
+	% translate([10, 10, 0])
+		rotate([0, 0, knee_angle/2])
+		translate([60, 0, -10])
+		rotate([0, 90, 0])
+		t2020(120);
+}
+
+
+knee_bottom();
 
 FRAME_U = 300;
 FRAME_DIAM = 635;
@@ -242,19 +295,19 @@ module spacer(id=5.1, od=7.9, h=15, clr=1) {
 
 
 uj_clearance = 1;
-uj_ir = actuator_bracket_w * 1.5 / 2;
+uj_ir = actuator_nub_w * 1.5 / 2;
 
 module universal_joint() {
 	difference() {
 		rotate([0, 90, 0])
-			cylinder(r=actuator_bracket_w, h=actuator_bracket_w*2/3, center=true);
-		cube([2*uj_ir, 2*uj_ir, actuator_bracket_w - 2*uj_clearance], center=true);
-		# cylinder(r=actuator_hole_ir, h=actuator_bracket_w*2, center=true);
+			cylinder(r=actuator_nub_w, h=actuator_nub_w*2/3, center=true);
+		cube([2*uj_ir, 2*uj_ir, actuator_nub_w - 2*uj_clearance], center=true);
+		# cylinder(r=actuator_hole_ir, h=actuator_nub_w*2, center=true);
 		# for (i=[-1, 1])
 			translate([0, i*uj_ir, 0])
 			rotate([-i*90, 0, 0]) {
 				cylinder(r=1.5*actuator_hole_ir, h=actuator_hole_ir);
-				cylinder(r=actuator_hole_ir, h=actuator_bracket_w);
+				cylinder(r=actuator_hole_ir, h=actuator_nub_w);
 			}
 	}
 	// % actuator();
@@ -265,7 +318,7 @@ module universal_joint() {
 
 // leg_base_offs = 100;
 // leg_foot_offs = 20;
-// leg_foot_or = leg_foot_offs + actuator_bracket_w;
+// leg_foot_or = leg_foot_offs + actuator_nub_w;
 
 // module leg_foot() {
 // 	difference() {
