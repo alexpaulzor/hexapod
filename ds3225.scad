@@ -17,6 +17,8 @@ ds3225_horn_hole_ir = 3/2;
 ds3225_horn_or = 15/2;
 ds3225_horn_hole_x = [0, 9, 20, 24];
 
+ds3225_horn_dz = 1.5;
+
 module ds3225_horn_holes() {
 	for (x=ds3225_horn_hole_x) {
 		translate([x, 0, 0])
@@ -46,6 +48,10 @@ module ds3225_horn() {
 
 // ! ds3225_horn();
 
+module ds3225_horn_stl() {
+	import("ds3225_horn.stl");
+}
+
 module ds3225_center_to_horn() {
 	translate([
 		ds3225_axle_flange_offset-ds3225_flange_l/2, 
@@ -61,9 +67,13 @@ module ds3225(rotation=0, show_model=false) {
 			cube([ds3225_l, ds3225_w, ds3225_h], center=true);
 		}
 	}
-	translate([0, 0, 2])  // TODO: measure discrepancy vs expected and compensate here
+	translate([0, 0, ds3225_horn_dz]) 
 		rotate([0, 0, rotation]) {
-		ds3225_horn();
+		if (show_model) {
+			ds3225_horn();
+		} else {
+			ds3225_horn_stl();
+		}
 		children();
 	}
 }
