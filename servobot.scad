@@ -206,6 +206,8 @@ hexhip_z = 50;
 hexhip_servo_x = hexhip_l - ds3225_w/2 - min_th;
 hexhip_servo_offs = [hexhip_servo_x, -23, -10];
 
+echo(hexhip_servo_offs=hexhip_servo_offs);
+
 module hexhip() {
 	difference() {
 		union() {
@@ -245,7 +247,7 @@ module hexhip() {
 		translate([hexhip_servo_x, -hexleg_w/2, -10])
 			rotate([90, -90, 0])
 			ds3225_holes();
-		translate(hexhip_servo_offs)
+		# translate(hexhip_servo_offs)
 			rotate([90, -90, 0]) {
 				ds3225(knee_rotation(), show_model=false);
 				translate([0, 0, -ds3225_flange_l])
@@ -272,8 +274,8 @@ module hexhip_design() {
 			hexleg_design();
 			wire_clip();
 		}
-	% translate([0, 0, -ds3225_horn_dz])
-		ds3225(show_model=true);
+	// % translate([0, 0, -ds3225_horn_dz])
+	// 	ds3225(show_model=true);
 	* translate([0, 0, -ds3225_h +ds3225_horn_dz + ds3225_flange_z - tab_th]) 
 		servo_cap();
 	// # translate(hexhip_servo_offs)
