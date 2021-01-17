@@ -139,10 +139,10 @@ module hexleg() {
 					cylinder(r=axle_or, h=ds3225_flange_l*2, $fn=36);
 				
 			}
-		# translate([hexleg_bridge_l + 9, 0, -hexleg_w/2 + 2.4])
+		translate([hexleg_bridge_l + 9, 0, -hexleg_w/2 + 2.4])
 			rotate([90, 0, 0])
 			cylinder(r=7, h=26, center=true);
-		# hexleg_brace_stl();
+		hexleg_brace();
 	}
 	// translate([hexleg_l, 0, 0])
 	// rotate([0, 0, 0])
@@ -174,12 +174,14 @@ module hexleg_brace_stl() {
 
 module hexleg_design() {
 	hexleg();
-	# hexleg_brace();
+	hexleg_brace();
 	% ds3225_horn();
 	translate([hexleg_l, 0, 0])
-		rotate([0, 0, 0])
-		ds3225(foot_rotation(), show_model=true) {
-			hexfoot();
+		rotate([0, 0, 0]) {
+			ds3225(foot_rotation(), show_model=true) {
+				hexfoot();
+			}
+			wire_clip();
 		}
 }
 
@@ -265,16 +267,21 @@ module hexhip_design() {
 	hexhip();
 	ds3225_horn();
 	translate(hexhip_servo_offs)
-		rotate([90, -90, 0])
-		ds3225(knee_rotation(), show_model=true) 
-		hexleg_design();
+		rotate([90, -90, 0]) {
+			ds3225(knee_rotation(), show_model=true) 
+			hexleg_design();
+			wire_clip();
+		}
 	% translate([0, 0, -ds3225_horn_dz])
 		ds3225(show_model=true);
 	* translate([0, 0, -ds3225_h +ds3225_horn_dz + ds3225_flange_z - tab_th]) 
 		servo_cap();
+	// # translate(hexhip_servo_offs)
+	// 	translate([-10, 0, -hexhip_l + wire_clip_h + tab_th + min_th])
+	// 	wire_clip();
 }
 
-// !hexhip_design();
+!hexhip_design();
 
 module hexhip_design_stl() {
 	hexhip_stl();
@@ -288,6 +295,51 @@ module hexhip_design_stl() {
 	// * translate([0, 0, -ds3225_h +ds3225_horn_dz + ds3225_flange_z - tab_th]) 
 	// 	servo_cap_stl();
 }
+
+wire_clip_w = 20 + 2 * min_th;
+wire_clip_h = (ds3225_flange_l - ds3225_l)/2 + min_th;
+
+module wire_clip() {
+
+	difference() {
+		union() {
+			translate([
+				ds3225_axle_flange_offset - ds3225_flange_l - min_th, 
+				-wire_clip_w/2, 
+				-min_th - 20])
+				ds3225_horn_to_flange(-1)
+				cube([wire_clip_h, wire_clip_w, min_th]);
+			translate([
+				ds3225_axle_flange_offset - ds3225_flange_l - min_th, 
+				-wire_clip_w/2, 
+				-min_th - 9])
+				ds3225_horn_to_flange(-1)
+					scale([1, 0.4, 1])
+					rotate([0, 90, 0])
+					cylinder(r=11, h=wire_clip_h);
+		}
+		ds3225_holes();
+		translate([
+			ds3225_axle_flange_offset - ds3225_flange_l - min_th, 
+			-wire_clip_w/2, 
+			-min_th - 9])
+			ds3225_horn_to_flange(-1)
+				scale([1, 0.4, 1])
+				rotate([0, 90, 0])
+				cylinder(r=11-min_th, h=wire_clip_h);
+		translate([
+				ds3225_axle_flange_offset - ds3225_flange_l - min_th, 
+				-wire_clip_w/2, 
+				-20])
+				ds3225_horn_to_flange(-1)
+				cube([wire_clip_h, wire_clip_w, 20]);
+			
+	}
+	// % ds3225(show_model=true);
+	// % hexhip_design();
+}
+
+// ! wire_clip();
 
 hexbody_or = 125;
 hexbody_pivot_r = 100;

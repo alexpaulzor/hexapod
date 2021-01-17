@@ -79,8 +79,8 @@ module ds3225(rotation=0, show_model=false) {
 }
 
 // !ds3225();
-module ds3225_horn_to_flange() {
-	translate([0, 0, ds3225_h - ds3225_flange_z]) 
+module ds3225_horn_to_flange(dir=1) {
+	translate(dir * [0, 0, ds3225_h - ds3225_flange_z]) 
 	children();
 }
 
