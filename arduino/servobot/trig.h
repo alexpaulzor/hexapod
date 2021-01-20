@@ -5,21 +5,10 @@ By- ABHILASH PATEL
 
 */
 
-#define PI 3.141592
-const float DEG2RAD = PI / 180.0f;
-const float RAD2DEG = 180.0f / PI;
-
-typedef struct {
-	float rotation;
-	float hip_angle;
-	float knee_angle;
-	float ankle_angle;
-	float x;
-	float y;
-	float z;
-} t_leg_pos;
-
-float asin(float c){
+#ifndef TRIG_H
+#define TRIG_H
+/*
+float asin(float c) {
 
 	float out;
 
@@ -56,4 +45,5 @@ float acos(float c) {
 
 float atan(float c) {
 	return asin(c/(sqrt(1+c*c)));
-}
+}*/
+#endif // TRIG_H

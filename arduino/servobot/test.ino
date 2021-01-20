@@ -1,5 +1,5 @@
 // https://wokwi.com/playground/servo
-// /*
+/*
 # include "kinematics.c"
 
 void setup() {
