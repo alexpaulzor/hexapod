@@ -1,37 +1,26 @@
 #include "servobot.h"
 
-// const int DRV_CH_HIPS[NUM_LEGS][2] = {
-//     {0, CH_HIP_0}, 
-//     {0, CH_HIP_1},
-//     {0, CH_HIP_2}, 
-//     {1, CH_HIP_3}, 
-//     {1, CH_HIP_4},
-//     {1, CH_HIP_5}
-// };
-// const int DRV_CH_KNEES[NUM_LEGS][2] = {
-//     {0, CH_KNEE_0}, 
-//     {0, CH_KNEE_1},
-//     {0, CH_KNEE_2}, 
-//     {1, CH_KNEE_3}, 
-//     {1, CH_KNEE_4},
-//     {1, CH_KNEE_5}
-// };
-// const int DRV_CH_ANKLES[NUM_LEGS][2] = {
-//     {0, CH_ANKLE_0}, 
-//     {0, CH_ANKLE_1},
-//     {0, CH_ANKLE_2}, 
-//     {1, CH_ANKLE_3}, 
-//     {1, CH_ANKLE_4},
-//     {1, CH_ANKLE_5}
-// };
+/*
+def angles_to_xyz(leg):
+    leg.x = BODY_PIVOT_R * math.cos(DEG2RAD * (leg.rotation))
+    leg.y = BODY_PIVOT_R * math.sin(DEG2RAD * (leg.rotation))
+    leg.z = HIP_DZ
 
-// const int LEG_SETS[2][3] = {
-//     {0, 2, 4},
-//     {1, 3, 5}
-// };
+    extension_x = (
+        HIP_L + 
+        LEG_L * math.cos(DEG2RAD * (leg.knee_angle)) +
+        FOOT_L * math.cos(DEG2RAD * (leg.knee_angle + (leg.ankle_angle + ANKLE_BIAS))))
 
+    extension_z = (
+        LEG_L * math.sin(DEG2RAD * (leg.knee_angle)) +
+        FOOT_L * math.sin(DEG2RAD * (leg.knee_angle + (leg.ankle_angle + ANKLE_BIAS))))
 
-// TODO: convert to use native radians in t_leg_pos
+    leg.x += extension_x * math.cos(DEG2RAD * (leg.rotation + leg.hip_angle))
+    leg.y += extension_x * math.sin(DEG2RAD * (leg.rotation + leg.hip_angle))
+    leg.z += extension_z
+    print(f"{locals()}")
+    return leg
+*/
 
 void angles_to_xyz(t_leg_pos * leg) {
 	leg->x = BODY_PIVOT_R * cos(DEG2RAD * (leg->rotation));
@@ -52,17 +41,53 @@ void angles_to_xyz(t_leg_pos * leg) {
 	leg->z += extension_z;
 }
 
-void xyz_to_angles(t_leg_pos * leg) {
+/*
+def xyz_to_angles(leg):
+    """Prefer vertical feet (ankle_angle + ANKLE_BIAS ~= -knee_angle)
+    """
 
+    dx = leg.x - BODY_PIVOT_R * math.cos(DEG2RAD * (leg.rotation));
+    dy = leg.y - BODY_PIVOT_R * math.sin(DEG2RAD * (leg.rotation));
+    dz = leg.z - HIP_DZ;
+
+    leg.hip_angle = (math.atan2(dy, dx) * RAD2DEG - leg.rotation) % 180;
+
+    dx -= HIP_L * math.cos(DEG2RAD * (leg.rotation + leg.hip_angle))
+    dy -= HIP_L * math.sin(DEG2RAD * (leg.rotation + leg.hip_angle))
+
+    leg_foot_ext = math.sqrt(dx * dx + dy * dy + dz * dz);
+    # leg_foot_ext is linear distance from hip pivot to foot tip (long side of iso triangle with ankle_angle as center)
+    # law of cosines to the rescue
+    leg.ankle_angle = 180 - math.acos((LEG_L * LEG_L + FOOT_L * FOOT_L - leg_foot_ext * leg_foot_ext) / (2 * LEG_L * FOOT_L)) * RAD2DEG - ANKLE_BIAS
+
+    leg.knee_angle = math.asin(dz / leg_foot_ext) * RAD2DEG
+    print(f"{locals()}")
+    
+    return leg
+*/
+
+void xyz_to_angles(t_leg_pos * leg) {
 	float dx = leg->x - BODY_PIVOT_R * cos(DEG2RAD * (leg->rotation));
 	float dy = leg->y - BODY_PIVOT_R * sin(DEG2RAD * (leg->rotation));
 	float dz = leg->z - HIP_DZ;
 
-	leg->hip_angle = atan(dy / dx) * RAD2DEG - leg->rotation;
+    // TODO: make sure atan sign is right
+	leg->hip_angle = (atan(dy / dx) * RAD2DEG - leg->rotation);
 	float extension_x = sqrt(dx * dx + dy * dy);
 
-	// TODO: system of equations this shiite.
+	dx -= HIP_L * cos(DEG2RAD * (leg->rotation + leg->hip_angle));
+    dy -= HIP_L * sin(DEG2RAD * (leg->rotation + leg->hip_angle));
+
+    float leg_foot_ext = sqrt(dx * dx + dy * dy + dz * dz);
+    // leg_foot_ext is linear distance from hip pivot to foot tip (long side of iso triangle with ankle_angle as center)
+    // law of cosines to the rescue
+    leg->ankle_angle = 180 - acos(
+        (LEG_L * LEG_L + FOOT_L * FOOT_L - leg_foot_ext * leg_foot_ext) / 
+        (2 * LEG_L * FOOT_L)) * RAD2DEG - ANKLE_BIAS;
+
+    leg->knee_angle = asin(dz / leg_foot_ext) * RAD2DEG;
 }
+
 
 void set_angle(int driver, int channel, float angle) {
     set_motor(driver, channel, pwmForAngle(angle));
@@ -369,8 +394,8 @@ void walk(float direction, float speed, float ride_angle) {
 }
 
 void plan_steps() {
-    for (int leg_group = 0 leg_group < 2; leg_group++) {
-        
+    for (int leg_group = 0; leg_group < 2; leg_group++) {
+
     }
 }
 

@@ -83,6 +83,8 @@ typedef struct {
 	float x;
 	float y;
 	float z;
+	unsigned short driver;
+	unsigned short channel;
 } t_leg_pos;
 
 // Function definitions

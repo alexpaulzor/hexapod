@@ -57,7 +57,7 @@ void setup() {
     driver1.setPWMFrequency(50);   // Set frequency to 50Hz
 
     // delay(10);
-    flatten();
+    stand(-90);
     delay(100);
 }
 
@@ -94,8 +94,8 @@ void loop() {
         // Drive disabled or command loss
         delay(250);
 
-    } else if (abs(fb) > DEADZONE_RATIO || abs(lr) > DEADZONE_RATIO) {
-        walk(direction, walk_speed, ride_angle);
+    // } else if (abs(fb) > DEADZONE_RATIO || abs(lr) > DEADZONE_RATIO) {
+    //     walk(direction, walk_speed, ride_angle);
     } else if (abs(spin_rate) > DEADZONE_RATIO) {
         // Spin in place
         spin(spin_rate, ride_angle);
