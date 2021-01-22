@@ -41,9 +41,9 @@ class t_leg_pos:
     def __eq__(self, other):
         return (
             abs(self.rotation - other.rotation) < 0.1 and 
-            abs(self.hip_angle - other.hip_angle) < 0.1 and
-            abs(self.knee_angle - other.knee_angle) < 0.1 and
-            abs(self.ankle_angle - other.ankle_angle) < 0.1 and
+            # abs(self.hip_angle - other.hip_angle) < 0.1 and
+            # abs(self.knee_angle - other.knee_angle) < 0.1 and
+            # abs(self.ankle_angle - other.ankle_angle) < 0.1 and
             abs(self.x - other.x)  < 0.1 and
             abs(self.y - other.y)  < 0.1 and
             abs(self.z - other.z) < 0.1)
@@ -58,13 +58,13 @@ def angles_to_xyz(leg):
         LEG_L * math.cos(DEG2RAD * (leg.knee_angle)) +
         FOOT_L * math.cos(DEG2RAD * (leg.knee_angle + (leg.ankle_angle + ANKLE_BIAS))))
 
-    extension_z = (
-        LEG_L * math.sin(DEG2RAD * (leg.knee_angle)) +
-        FOOT_L * math.sin(DEG2RAD * (leg.knee_angle + (leg.ankle_angle + ANKLE_BIAS))))
+    leg_z = LEG_L * math.sin(DEG2RAD * (leg.knee_angle))
+    foot_z = FOOT_L * math.sin(DEG2RAD * (leg.knee_angle + (leg.ankle_angle + ANKLE_BIAS)))
+    extension_z = leg_z + foot_z
 
     leg.x += extension_x * math.cos(DEG2RAD * (leg.rotation + leg.hip_angle))
     leg.y += extension_x * math.sin(DEG2RAD * (leg.rotation + leg.hip_angle))
-    leg.z += extension_z
+    leg.z -= extension_z
     print(f"{locals()}")
     return leg
 
@@ -84,9 +84,26 @@ def xyz_to_angles(leg):
     leg_foot_ext = math.sqrt(dx * dx + dy * dy + dz * dz);
     # leg_foot_ext is linear distance from hip pivot to foot tip (long side of iso triangle with ankle_angle as center)
     # law of cosines to the rescue
-    leg.ankle_angle = 180 - math.acos((LEG_L * LEG_L + FOOT_L * FOOT_L - leg_foot_ext * leg_foot_ext) / (2 * LEG_L * FOOT_L)) * RAD2DEG - ANKLE_BIAS
+    # ankle = 180 - math.acos((LEG_L * LEG_L + FOOT_L * FOOT_L - leg_foot_ext * leg_foot_ext) / (2 * LEG_L * FOOT_L)) * RAD2DEG
+    ankle = math.acos((LEG_L * LEG_L + FOOT_L * FOOT_L - leg_foot_ext * leg_foot_ext) / (2 * LEG_L * FOOT_L)) * RAD2DEG
+    
+    print(f"{locals()}")
+    hip_foot_angle = math.asin(dz / leg_foot_ext) * RAD2DEG
+    leg.knee_angle = (ankle/2 - hip_foot_angle) - 90
 
-    leg.knee_angle = math.asin(dz / leg_foot_ext) * RAD2DEG
+    if leg.knee_angle < -90 or leg.knee_angle > 90:
+        # knee wont reach, so invert
+        print(f"inverting {locals()}")
+        # print("inverting")
+        ankle = -ankle
+        leg.knee_angle = -(ankle/2 - hip_foot_angle)
+
+
+    leg.ankle_angle = ankle - ANKLE_BIAS
+    if leg.ankle_angle < -90:
+        leg.ankle_angle = -90
+    if leg.ankle_angle > 90:
+        leg.ankle_angle = 90
     print(f"{locals()}")
     
     return leg
@@ -119,11 +136,16 @@ def test_med_stand():
 #     _test_both_ways(0, 0, 90, 45, 38, 0, -100)
 
 
-def test_xyz_angle_xyz(rotation=0, x=137, y=0, z=100):
+def test_curl_up():
+    _test_angle_xyz_angle(0, 0, 0, -90)
+
+def test_curl_down():
+    _test_angle_xyz_angle(0, 0, 0, 90)
+
+def test_xyz_angle_xyz(rotation=0, x=150, y=0, z=-100):
     xyz_to_a = _test_xyz_to_angles(rotation, x, y, z)
     a_to_xyz = _test_angles_to_xyz(rotation, xyz_to_a.hip_angle, xyz_to_a.knee_angle, xyz_to_a.ankle_angle)
     assert a_to_xyz == xyz_to_a
-
 
 
 
@@ -172,6 +194,9 @@ def _test_xyz_to_angles(rotation, x, y, z):
     print(f"Output leg: {leg0}")
     return leg0
 
-
+# ECHO: hip_angle = 0, knee_angle = -90, ankle_angle = 0, leg_x2 = 208.711, leg_y2 = 0, leg_z2 = 170.711, extension_x = 108.711
+# ECHO: hip_angle = 0, knee_angle = -20, ankle_angle = 50, leg_x2 = 257.851, leg_y2 = 0, leg_z2 = -62.3906, extension_x = 157.851
+# ECHO: hip_angle = 10, knee_angle = -20, ankle_angle = 50, leg_x2 = 255.453, leg_y2 = -27.4106, leg_z2 = -62.3906, extension_x = 157.851
+# ECHO: hip_angle = 10, knee_angle = -30, ankle_angle = -90, leg_x2 = 248.198, leg_y2 = -26.1313, leg_z2 = 146.593, extension_x = 150.484
 if __name__ == '__main__':
     test_all()

@@ -6,12 +6,22 @@ axle_or = 5.2/2;
 
 hip_rom = 120;
 knee_bias = -90;
+ankle_bias = 45;
 knee_rom = 180;
 foot_rom = 180;
 
-function hip_rotation() = hip_rom * abs(sin(180*$t)) - hip_rom/2;
-function knee_rotation() = -knee_rom * abs(sin(180*$t*2)) + knee_rom/2 + knee_bias;
-function foot_rotation() = foot_rom * abs(sin(180*$t*4)) - foot_rom/2;
+// function hip_rotation() = hip_rom * abs(sin(180*$t)) - hip_rom/2;
+// function knee_rotation() = -knee_rom * abs(sin(180*$t*2)) + knee_rom/2 + knee_bias;
+// function foot_rotation() = foot_rom * abs(sin(180*$t*4)) - foot_rom/2;
+
+hip_angle = 10;
+knee_angle = -30;
+ankle_angle = -90;
+
+function hip_rotation() = hip_angle;
+function knee_rotation() = knee_angle + knee_bias;
+function foot_rotation() = ankle_angle + ankle_bias;
+
 
 tab_th = 3;
 min_th = 2;
@@ -283,7 +293,7 @@ module hexhip_design() {
 	// 	wire_clip();
 }
 
-!hexhip_design();
+// !hexhip_design();
 
 module hexhip_design_stl() {
 	hexhip_stl();
@@ -345,7 +355,7 @@ module wire_clip() {
 
 hexbody_or = 125;
 hexbody_pivot_r = 100;
-hexbody_limit = 360;
+hexbody_limit = 30; //360;
 hexbody_riser_l = 20;
 hexbody_riser_w = 24;
 hexbody_riser_h = ds3225_flange_z;
@@ -484,5 +494,54 @@ module hexbody_stl() {
 		}
 	}
 }
+
+module maths() {
+	/*
+	leg.x = BODY_PIVOT_R * math.cos(DEG2RAD * (leg.rotation))
+    leg.y = BODY_PIVOT_R * math.sin(DEG2RAD * (leg.rotation))
+    leg.z = HIP_DZ
+
+    extension_x = (
+        HIP_L + 
+        LEG_L * math.cos(DEG2RAD * (leg.knee_angle)) +
+        FOOT_L * math.cos(DEG2RAD * (leg.knee_angle + (leg.ankle_angle + ANKLE_BIAS))))
+
+    leg_z = LEG_L * math.sin(DEG2RAD * (leg.knee_angle))
+    foot_z = FOOT_L * math.sin(DEG2RAD * (leg.knee_angle + (leg.ankle_angle + ANKLE_BIAS)))
+    extension_z = leg_z + foot_z
+
+    leg.x += extension_x * math.cos(DEG2RAD * (leg.rotation + -leg.hip_angle))
+    leg.y += extension_x * math.sin(DEG2RAD * (leg.rotation + -leg.hip_angle))
+    leg.z -= extension_z
+    */
+    leg_x = hexbody_pivot_r * cos(0);
+    leg_y = hexbody_pivot_r * sin(0);
+    // leg_z = 0;
+
+    extension_x = (
+        hexhip_servo_x + 
+        hexleg_l * cos(knee_angle) +
+        hexfoot_l * cos(knee_angle + ankle_angle + ankle_bias));
+
+    leg_z = hexleg_l * sin(knee_angle);
+    foot_z = hexfoot_l * sin(knee_angle + ankle_angle + ankle_bias);
+    extension_z = leg_z + foot_z;
+
+    leg_x2 = leg_x + extension_x * cos(-hip_angle);
+    leg_y2 = leg_y + extension_x * sin(-hip_angle);
+    leg_z2 = -extension_z;
+
+    echo(
+    	hip_angle=hip_angle, knee_angle=knee_angle, ankle_angle=ankle_angle,
+    	leg_x2=leg_x2, leg_y2=leg_y2, leg_z2=leg_z2,
+    	extension_x=extension_x);
+    # translate([leg_x2, leg_y2, leg_z2]) {
+    	sphere(r=2);
+    	// % sphere(r=20);
+    }
+    // % translate([leg_x, leg_y, -leg_z])
+    // 	sphere(r=1);
+}
+maths();
 // hexbody_stl();
 // */

@@ -79,29 +79,40 @@ void xyz_to_angles(t_leg_pos * leg) {
     dy -= HIP_L * sin(DEG2RAD * (leg->rotation + leg->hip_angle));
 
     float leg_foot_ext = sqrt(dx * dx + dy * dy + dz * dz);
+    float ankle = 180 - acos(
+        (LEG_L * LEG_L + FOOT_L * FOOT_L - leg_foot_ext * leg_foot_ext) / 
+        (2 * LEG_L * FOOT_L)) * RAD2DEG;
+
     // leg_foot_ext is linear distance from hip pivot to foot tip (long side of iso triangle with ankle_angle as center)
     // law of cosines to the rescue
-    leg->ankle_angle = 180 - acos(
-        (LEG_L * LEG_L + FOOT_L * FOOT_L - leg_foot_ext * leg_foot_ext) / 
-        (2 * LEG_L * FOOT_L)) * RAD2DEG - ANKLE_BIAS;
-
-    leg->knee_angle = asin(dz / leg_foot_ext) * RAD2DEG;
+    leg->ankle_angle = ankle - ANKLE_BIAS;
+    
+    // hip_foot_angle is line-of-sight from hip to tip of foot
+    float hip_foot_angle = asin(dz / leg_foot_ext) * RAD2DEG;
+    // knee_angle + hip_foot_angle = 180
+    leg->knee_angle = ankle/2 - hip_foot_angle;
 }
 
+int exceeds_rom(t_leg_pos * leg) {
+    return (
+        (-HIP_DEFLECTION <= leg->hip_angle && leg->hip_angle <= HIP_DEFLECTION) &&
+        (-KNEE_DEFLECTION <= leg->knee_angle && leg->knee_angle <= KNEE_DEFLECTION) &&
+        (-ANKLE_DEFLECTION <= leg->ankle_angle && leg->ankle_angle <= ANKLE_DEFLECTION));
+}
 
-void set_angle(int driver, int channel, float angle) {
+void set_angle(unsigned short driver, unsigned short channel, float angle) {
     set_motor(driver, channel, pwmForAngle(angle));
 }
 
-void set_all_angles(int channels[][2], int channels_len, float angle) {
+void set_all_angles(unsigned short channels[][2], int channels_len, float angle) {
     for (int i = 0; i < channels_len; i++) {
         set_angle(channels[i][0], channels[i][1], angle);
     }
 }
 
 void smooth_move_step(
-        int driver, 
-        int channel, 
+        unsigned short driver, 
+        unsigned short channel, 
         float angle, 
         long duration_ms, 
         unsigned long interval_ms) {
@@ -124,8 +135,8 @@ void smooth_move_step(
 }
 
 void smooth_move_to(
-        int drivers[], 
-        int channels[], 
+        unsigned short drivers[], 
+        unsigned short channels[], 
         float angles[], 
         int num_channels,
         unsigned long duration_ms,
@@ -154,8 +165,8 @@ void smooth_move_all(
         float leg_angles[NUM_LEGS][3], long duration_ms, unsigned long interval_ms) {
     // leg_angles = {{hip0, knee0, ankle0}, ...}
 
-    int drivers[3 * NUM_LEGS];
-    int channels[3 * NUM_LEGS];
+    unsigned short drivers[3 * NUM_LEGS];
+    unsigned short channels[3 * NUM_LEGS];
     float angles[3 * NUM_LEGS];
     for (int leg = 0; leg < NUM_LEGS; leg++) {
         int driver = leg / (NUM_LEGS / 2);
@@ -167,6 +178,46 @@ void smooth_move_all(
     }
     smooth_move_to(
         drivers, channels, angles, 3 * NUM_LEGS,
+        duration_ms, interval_ms);
+}
+
+void smooth_move_legs(t_leg_pos * legs[NUM_LEGS], long duration_ms, unsigned long interval_ms) {
+    unsigned short drivers[3 * NUM_LEGS];
+    unsigned short channels[3 * NUM_LEGS];
+    float angles[3 * NUM_LEGS];
+    for (int leg = 0; leg < NUM_LEGS; leg++) {   
+        drivers[3*leg] = legs[leg]->driver;
+        drivers[3*leg + 1] = legs[leg]->driver;
+        drivers[3*leg + 2] = legs[leg]->driver;
+        channels[3*leg] = legs[leg]->channel;
+        channels[3*leg + 1] = legs[leg]->channel + 1;
+        channels[3*leg + 2] = legs[leg]->channel + 2;
+        angles[3*leg] = legs[leg]->hip_angle;
+        angles[3*leg + 1] = legs[leg]->knee_angle;
+        angles[3*leg + 2] = legs[leg]->ankle_angle;
+    }
+    smooth_move_to(
+        drivers, channels, angles, 3 * NUM_LEGS,
+        duration_ms, interval_ms);
+}
+
+void smooth_move_leg(t_leg_pos * leg, long duration_ms, unsigned long interval_ms) {
+    unsigned short drivers[3];
+    unsigned short channels[3];
+    float angles[3];
+       
+    drivers[0] = leg->driver;
+    drivers[1] = leg->driver;
+    drivers[2] = leg->driver;
+    channels[0] = leg->channel;
+    channels[1] = leg->channel + 1;
+    channels[2] = leg->channel + 2;
+    angles[0] = leg->hip_angle;
+    angles[1] = leg->knee_angle;
+    angles[2] = leg->ankle_angle;
+    
+    smooth_move_to(
+        drivers, channels, angles, 3,
         duration_ms, interval_ms);
 }
 
@@ -198,7 +249,7 @@ float get_ankle_angle(float knee_angle) {
 }
 
 float get_step_duration_ms(float speed) {
-    return map(abs(speed), 0, 1, 3000, 200);
+    return map(abs(speed), 0, 1, 1000, 200);
 }
 
 void stand(float ride_angle) {
@@ -225,6 +276,18 @@ void stand(float ride_angle) {
         {0, ride_angle, ankle_angle}
     };
     smooth_move_all(stand_angles, get_step_duration_ms(1.0), 5);
+}
+
+void retract() {
+    float retract_angles[NUM_LEGS][3] = {
+        {0, -90, 90}, 
+        {0, -90, 90}, 
+        {0, -90, 90}, 
+        {0, -90, 90}, 
+        {0, -90, 90}, 
+        {0, -90, 90}
+    };
+    smooth_move_all(retract_angles, get_step_duration_ms(1.0), 5);
 }
 
 void spin(float spin_rate, float ride_angle) {
@@ -318,7 +381,7 @@ void spin(float spin_rate, float ride_angle) {
         get_step_duration_ms(spin_rate), 5);
 }
 
-void walk(float direction, float speed, float ride_angle) {
+void walk_derpy(float direction, float speed, float ride_angle) {
 
     float ankle_angle = get_ankle_angle(ride_angle);
 
@@ -393,11 +456,191 @@ void walk(float direction, float speed, float ride_angle) {
     // delay(1000);
 }
 
-void plan_steps() {
-    for (int leg_group = 0; leg_group < 2; leg_group++) {
-
+void init_legs(t_leg_pos * legs[NUM_LEGS]) {
+    for (unsigned short leg = 0; leg < NUM_LEGS; leg++) {
+        legs[leg]->rotation = leg * 60;
+        legs[leg]->driver = leg / (NUM_LEGS / 2);
+        legs[leg]->channel = (3 * leg) % (3 * NUM_LEGS / 2);
+        legs[leg]->hip_angle = 0;
+        // get_current_value(
+        //     legs[leg]->driver, legs[leg]->channel);
+        legs[leg]->knee_angle = -90;
+        // get_current_value(
+        //     legs[leg]->driver, legs[leg]->channel + 1);
+        legs[leg]->ankle_angle = 90;
+        // get_current_value(
+        //     legs[leg]->driver, legs[leg]->channel + 2);
+        angles_to_xyz(legs[leg]);
     }
 }
+
+void walk(float direction, float speed, float ride_angle) {
+    /*
+        Use t_leg_pos, angles_to_xyz(), and xyz_to_angles()
+        to orchestrate motion one leg at a time. 
+
+        General idea:
+        * For any legs in the air, move as far as possible _away_ from bearing "direction".
+        * For each leg, compute how far along the floor (x-y) we can move along bearing "direction".
+        * Move all legs as far as possible along bearing "direction" without lifting any legs.
+        * When a leg reaches its end of motion, lift that leg to a neutral lifted position
+        * Return (if still walking, the outer loop will continue the same motion until the next leg needs to move).
+
+        TODO: How to detect when ROM exceeded and step that leg without hitting math errors?
+    */
+
+    // TODO: make this a global var?
+    t_leg_pos legs[NUM_LEGS];
+    t_leg_pos * leg_ptr[NUM_LEGS];
+    for (int leg = 0; leg < NUM_LEGS; leg++)
+        leg_ptr[leg] = &legs[leg];
+    init_legs(leg_ptr);
+
+    for (int leg = 0; leg < NUM_LEGS; leg++) {
+        legs[leg].knee_angle = -45;
+        legs[leg].ankle_angle = get_ankle_angle(legs[leg].knee_angle); 
+        angles_to_xyz(leg_ptr[leg]);
+    }
+    smooth_move_legs(leg_ptr, 2000, 5);  // Neutral low stand
+    beeps(3);
+    delay(1000);
+    for (int leg = 0; leg < NUM_LEGS; leg++) {
+        xyz_to_angles(leg_ptr[leg]);
+    }
+    smooth_move_legs(leg_ptr, 2000, 5);  // Should be noop
+    beeps(5);
+    delay(1000);
+
+    int num_segments = 3;
+    
+    // target step size is <100mm in increments of 10mm
+    float dx = speed * 100 * cos(direction) / num_segments;
+    float dy = speed * 100 * sin(direction) / num_segments;
+
+    // int rom_hit = 0;
+    for (int segment = 0; segment < num_segments; segment++) {
+        for (int leg = 0; leg < NUM_LEGS; leg++) {
+            legs[leg].x += dx;
+            legs[leg].y += dy;
+            xyz_to_angles(leg_ptr[leg]);
+            if (exceeds_rom(leg_ptr[leg])) {
+                // beeps(leg);
+                // delay(1000);
+                // beeps(leg);
+                // delay(200);
+                // rom_hit = 1;
+                legs[leg].hip_angle = 0;
+                if (legs[leg].z < 0) {
+                    legs[leg].knee_angle = -45;
+                    legs[leg].ankle_angle = -90;
+                } else {
+                    legs[leg].knee_angle = -45;
+                    legs[leg].ankle_angle = get_ankle_angle(legs[leg].knee_angle);
+                }
+                angles_to_xyz(leg_ptr[leg]);
+            }
+        }
+
+        smooth_move_legs(leg_ptr, 2000, 5);  // Should be noop
+    }
+        // if (rom_hit) {
+        //     beeps(4);
+        //     delay(500);
+        //     beeps(4);
+        //     delay(500);
+        //     beeps(4);
+        //     return;
+        // }
+
+    // }
+
+
+    // for (int leg = 0; leg < NUM_LEGS; leg++) {
+    //     angles_to_xyz(leg_ptr[leg]);
+    //     xyz_to_angles(leg_ptr[leg]);
+    // }
+    // smooth_move_legs(leg_ptr, 2000, 5);  // Should be NOOP!!
+    // beeps(5);
+    // delay(10000);
+    // // for (int i = 1; i < 10; i++) {
+    // //     legs[0].x += 50;
+    // //     xyz_to_angles(leg_ptr[0]);
+    // //     smooth_move_legs(leg_ptr, 2000, 5);
+    // //     beeps(i);
+    // //     delay(1000);
+    // // }
+        
+    // // beeps(2);
+    // // legs[0].x += 50;
+    // // xyz_to_angles(leg_ptr[0]);
+    // // smooth_move_legs(leg_ptr, 2000, 5);
+    
+    // // beeps(3);
+    // // legs[0].z -= 50;
+    // // xyz_to_angles(leg_ptr[0]);
+    // // smooth_move_legs(leg_ptr, 2000, 5);
+
+    // // beeps(4);
+    // // legs[0].y -= 50;
+    // // xyz_to_angles(leg_ptr[0]);
+    // // smooth_move_legs(leg_ptr, 2000, 5);
+
+    // // beeps(5);
+    // // legs[0].y += 100;
+    // // xyz_to_angles(leg_ptr[0]);
+    // // smooth_move_legs(leg_ptr, 2000, 5);
+    
+    // // beeps(6);
+    // // legs[3].ankle_angle = 90;
+    // // smooth_move_legs(leg_ptr, 2000, 5); // _should_ be a no-op
+
+    // beeps(1);
+    // // for (int leg = 0; leg < NUM_LEGS; leg++) {
+    // //     xyz_to_angles(leg_ptr[leg]);
+    // //     if (legs[leg].hip_angle < -90 || legs[leg].hip_angle > 90) {
+    // //         legs[leg].hip_angle = -90;
+    // //         legs[leg].knee_angle = -90;
+    // //         legs[leg].ankle_angle = -90;
+    // //     }
+    // //     if (legs[leg].knee_angle < -90 || legs[leg].knee_angle > 90) {
+    // //         legs[leg].hip_angle = -90;
+    // //         legs[leg].knee_angle = -90;
+    // //         legs[leg].ankle_angle = -90;
+    // //     }
+    // //     if (legs[leg].ankle_angle < -90 || legs[leg].ankle_angle > 90) {
+    // //         legs[leg].hip_angle = -90;
+    // //         legs[leg].knee_angle = -90;
+    // //         legs[leg].ankle_angle = -90;
+    // //     }
+    // // }
+    // // delay(1000);
+    // // smooth_move_legs(leg_ptr, 2000, 5); // should _still_ be a no-op
+    // // delay(1000);
+    // // legs[0].knee_angle = -90;
+    // // smooth_move_legs(leg_ptr, 2000, 5); // should _still_ be a no-op
+    // delay(1000);
+    
+    // // float lowest_z[] = {0, 0, 0};  // lowest 3 legs make a tripod
+    // // for (int i = 0; i < NUM_LEGS; i++) {
+    // //     if (legs[i].z < lowest_z[0]) {
+    // //         lowest_z[2] = lowest_z[1];
+    // //         lowest_z[1] = lowest_z[0];
+    // //         lowest_z[0] = legs[i].z;
+    // //     } else if (legs[i].z < lowest_z[1]) {
+    // //         lowest_z[2] = lowest_z[1];
+    // //         lowest_z[1] = legs[i].z;
+    // //     } else if (legs[i].z < lowest_z[2]) {
+    // //         lowest_z[2] = legs[i].z;
+    // //     }
+    // // }
+    // // target z is lowest_z[2]
+}
+
+// void plan_steps() {
+//     for (int leg_group = 0; leg_group < 2; leg_group++) {
+
+//     }
+// }
 
 /*
 void dance() {
