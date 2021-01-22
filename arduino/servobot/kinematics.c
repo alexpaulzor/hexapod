@@ -11,13 +11,13 @@ def angles_to_xyz(leg):
         LEG_L * math.cos(DEG2RAD * (leg.knee_angle)) +
         FOOT_L * math.cos(DEG2RAD * (leg.knee_angle + (leg.ankle_angle + ANKLE_BIAS))))
 
-    extension_z = (
-        LEG_L * math.sin(DEG2RAD * (leg.knee_angle)) +
-        FOOT_L * math.sin(DEG2RAD * (leg.knee_angle + (leg.ankle_angle + ANKLE_BIAS))))
+    leg_z = LEG_L * math.sin(DEG2RAD * (leg.knee_angle))
+    foot_z = FOOT_L * math.sin(DEG2RAD * (leg.knee_angle + (leg.ankle_angle + ANKLE_BIAS)))
+    extension_z = leg_z + foot_z
 
-    leg.x += extension_x * math.cos(DEG2RAD * (leg.rotation + leg.hip_angle))
-    leg.y += extension_x * math.sin(DEG2RAD * (leg.rotation + leg.hip_angle))
-    leg.z += extension_z
+    leg.x += extension_x * math.cos(DEG2RAD * (leg.rotation - leg.hip_angle))
+    leg.y += extension_x * math.sin(DEG2RAD * (leg.rotation - leg.hip_angle))
+    leg.z -= extension_z
     print(f"{locals()}")
     return leg
 */
@@ -36,9 +36,9 @@ void angles_to_xyz(t_leg_pos * leg) {
 		LEG_L * sin(DEG2RAD * (leg->knee_angle)) +
 		FOOT_L * sin(DEG2RAD * (leg->knee_angle + (leg->ankle_angle + ANKLE_BIAS))));
 
-	leg->x += extension_x * cos(DEG2RAD * (leg->rotation + leg->hip_angle));
-	leg->y += extension_x * sin(DEG2RAD * (leg->rotation + leg->hip_angle));
-	leg->z += extension_z;
+	leg->x += extension_x * cos(DEG2RAD * (leg->rotation - leg->hip_angle));
+	leg->y += extension_x * sin(DEG2RAD * (leg->rotation - leg->hip_angle));
+	leg->z -= extension_z;
 }
 
 /*
@@ -79,18 +79,33 @@ void xyz_to_angles(t_leg_pos * leg) {
     dy -= HIP_L * sin(DEG2RAD * (leg->rotation + leg->hip_angle));
 
     float leg_foot_ext = sqrt(dx * dx + dy * dy + dz * dz);
-    float ankle = 180 - acos(
-        (LEG_L * LEG_L + FOOT_L * FOOT_L - leg_foot_ext * leg_foot_ext) / 
-        (2 * LEG_L * FOOT_L)) * RAD2DEG;
-
     // leg_foot_ext is linear distance from hip pivot to foot tip (long side of iso triangle with ankle_angle as center)
     // law of cosines to the rescue
+    float loc_top = LEG_L * LEG_L + FOOT_L * FOOT_L - leg_foot_ext * leg_foot_ext;
+    float loc_bottom = 2 * LEG_L * FOOT_L;
+    float ankle;
+    if (leg_foot_ext > LEG_L + FOOT_L) {
+        // full extension
+        ankle = 0;
+    } else if (loc_top < 0 || loc_top > loc_bottom) {
+        ankle = 90;
+    } else {
+        ankle = 180 - acos(loc_top / loc_bottom) * RAD2DEG;
+    }
+
     leg->ankle_angle = ankle - ANKLE_BIAS;
     
     // hip_foot_angle is line-of-sight from hip to tip of foot
-    float hip_foot_angle = asin(dz / leg_foot_ext) * RAD2DEG;
+    float hip_foot_angle;
+    if (leg_foot_ext != 0 && abs(dz) <= leg_foot_ext) {
+        hip_foot_angle = asin(dz / leg_foot_ext) * RAD2DEG;
+    } else {
+        hip_foot_angle = 0;
+    }
     // knee_angle + hip_foot_angle = 180
-    leg->knee_angle = ankle/2 - hip_foot_angle;
+    leg->knee_angle = constrain(
+        ankle/2 - hip_foot_angle - 90,
+        -90, 90);
 }
 
 int exceeds_rom(t_leg_pos * leg) {
