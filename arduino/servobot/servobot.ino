@@ -91,28 +91,39 @@ void print_leg(t_leg_pos * leg) {
         ", knee=" + String(leg->knee_angle) +
         ", ankle=" + String(leg->ankle_angle));
 }
-/*
+
 void dump_motion_table() {
-    t_leg_pos legs[NUM_LEGS];
-    t_leg_pos * leg_ptr[NUM_LEGS];
-    for (int leg = 0; leg < NUM_LEGS; leg++)
-        leg_ptr[leg] = &legs[leg];
-    init_legs(leg_ptr);
+    // t_leg_pos legs[NUM_LEGS];
+    // t_leg_pos * leg_ptr[NUM_LEGS];
+    // for (int leg = 0; leg < NUM_LEGS; leg++)
+    //     leg_ptr[leg] = &legs[leg];
+    // init_legs(leg_ptr);
     int da = 15;
-    Serial.println("hip,knee,ankle,x,y,z,hip2,knee2,ankle2,x2,y2,z2,hip3,knee3,ankle3");
+    // Serial.println("x,y,z,hip,knee,ankle,");
     for (int hip_angle = - da; hip_angle <= da; hip_angle += da) {
         for (int knee_angle = -KNEE_DEFLECTION; knee_angle <= KNEE_DEFLECTION; knee_angle += da) {
             for (int ankle_angle = -ANKLE_DEFLECTION - da; ankle_angle <= ANKLE_DEFLECTION + da; ankle_angle += da) {
                 for (int leg = 0; leg < 1; leg++) {
-                    print_leg(leg_ptr[leg], hip_angle, knee_angle, ankle_angle);
+                    legs[leg].hip_angle = hip_angle;
+                    legs[leg].knee_angle = knee_angle;
+                    legs[leg].ankle_angle = ankle_angle;
+                    angles_to_xyz(leg_ptr[0]);
+                    print_leg(leg_ptr[leg]);
                     smooth_move_leg(leg_ptr[leg], 500, 5);
-                    // delay(1000);
+                    delay(500);
+                    Serial.println("xyz -> a -> xyz");
+                    xyz_to_angles(leg_ptr[0]);
+                    angles_to_xyz(leg_ptr[0]);
+                    print_leg(leg_ptr[0]);
+                    // smooth_move_leg(leg_ptr[0], 500, 5);
+                    // beeps(3);
+                    // delay(500);
                 }
             }
         }
     }
     delay(10000);
-}*/
+}
 
 
 void setup() {
@@ -130,7 +141,7 @@ void setup() {
     for (int leg = 0; leg < NUM_LEGS; leg++)
         leg_ptr[leg] = &legs[leg];
     init_legs(leg_ptr);
-    // retract();
+    retract();
     // angles_to_xyz(leg_ptr[0]);
     // print_leg(leg_ptr[0]);
     // beeps(3);
@@ -142,10 +153,11 @@ void setup() {
     // test_leg(200, 0, -50);
     // dump_motion_table();
     
-    // testleg2(0, 22.5, -90);
+    testleg2(0, -60, -60);
     // beep(2);
     // delay(5000);
-    testleg2(0, -22.5, 0);
+    // testleg2(0, -22.5, 0);
+    // testleg2(10, -30, -30);
     beep(7);
     delay(5000);
 }

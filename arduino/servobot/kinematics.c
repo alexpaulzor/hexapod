@@ -73,41 +73,61 @@ void xyz_to_angles(t_leg_pos * leg) {
 	float dy = leg->y - BODY_PIVOT_R * sin(DEG2RAD * (leg->rotation));
 	float dz = leg->z - HIP_DZ;
 
-    // TODO: make sure atan sign is right
 	leg->hip_angle = constrain(
         (atan(dy / dx) * RAD2DEG - leg->rotation),
         -HIP_DEFLECTION, HIP_DEFLECTION);
-	// float extension_x = sqrt(dx * dx + dy * dy);
 
 	dx -= HIP_L * cos(DEG2RAD * (leg->rotation + leg->hip_angle));
     dy -= HIP_L * sin(DEG2RAD * (leg->rotation + leg->hip_angle));
 
+    // Now dx, dy, dz are the component distances from knee pivot to foot tip
     float leg_foot_ext = sqrt(dx * dx + dy * dy + dz * dz);
     // leg_foot_ext is linear distance from hip pivot to foot tip (long side of iso triangle with ankle_angle as center)
     // law of cosines to the rescue
     float loc_top = LEG_L * LEG_L + FOOT_L * FOOT_L - leg_foot_ext * leg_foot_ext;
     float loc_bottom = 2 * LEG_L * FOOT_L;
-    float ankle;
+    float raw_ankle;
     if (leg_foot_ext > LEG_L + FOOT_L) {
         // full extension
-        ankle = 0;
+        raw_ankle = 0;
     } /*else if (loc_top < 0 || loc_top > loc_bottom) {
         ankle = 90;
     } */else {
-        ankle = acos(loc_top / loc_bottom) * RAD2DEG;
+        raw_ankle = acos(loc_top / loc_bottom) * RAD2DEG;
     }
 
-    float raw_ankle = ANKLE_BIAS - ankle;
+    float ankle = 180 - raw_ankle - ANKLE_BIAS;
 
-    leg->ankle_angle = constrain(raw_ankle, -90, 90);
+    
     
     // hip_foot_angle is line-of-sight from hip to tip of foot
     // if (leg_foot_ext != 0 && abs(dz) <= leg_foot_ext) {
     float hip_foot_angle = asin(dz / leg_foot_ext) * RAD2DEG;
-    float raw_knee = hip_foot_angle - 90 + ankle/2.0;
+
+    float raw_knee = hip_foot_angle - 90 + raw_ankle/2.0;
+
     log_debug_vals(leg_foot_ext, ankle, hip_foot_angle, raw_ankle, raw_knee);
-    leg->knee_angle = constrain(-raw_knee, -90, 90);
     
+    /*
+    Here there are a few cases to handle:
+
+    dz > 0 | hfa > 0 |
+    -------|---------|
+    false  | false   |
+    false  | true    |
+    true   | false   |
+    true   | true    | 
+    */
+
+    // dz < 0 (foot tip above body)
+
+    leg->ankle_angle = constrain(ankle, -90, 90);
+    leg->knee_angle = constrain(raw_knee, -90, 90);
+    
+
+
+
+
     // } else {
     //     leg->knee_angle = -90; //hip_foot_angle - 90 + ankle/2;
     // }
