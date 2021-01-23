@@ -93,7 +93,13 @@ def xyz_to_angles(leg):
     
     print(f"{locals()}")
     hip_foot_angle = math.asin(dz / leg_foot_ext) * RAD2DEG
-    leg.knee_angle = (ankle/2 - hip_foot_angle) - 90
+    
+    # 180 = 2 * (hip_foot_angle - knee_angle) + ankle
+    # (180 - ankle) / 2 = hip_foot_angle - knee_angle
+    # knee_angle = hip_foot_angle - (180 - ankle)/2
+    
+    leg.knee_angle = hip_foot_angle - 90 + ankle/2;
+    # leg.knee_angle = (ankle/2 - hip_foot_angle) - 90
 
     # if leg.knee_angle < -90 or leg.knee_angle > 90:
     #     # knee wont reach, so invert
@@ -146,7 +152,7 @@ def test_curl_up():
 def test_curl_down():
     _test_angle_xyz_angle(0, 0, 0, 90)
 
-def test_xyz_angle_xyz(rotation=0, x=200, y=30, z=-100):
+def test_xyz_angle_xyz(rotation=0, x=248.198, y=-26.1313, z=146.593):
     xyz_to_a = _test_xyz_to_angles(rotation, x, y, z)
     a_to_xyz = _test_angles_to_xyz(rotation, xyz_to_a.hip_angle, xyz_to_a.knee_angle, xyz_to_a.ankle_angle)
     assert a_to_xyz == xyz_to_a

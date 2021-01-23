@@ -18,12 +18,24 @@ PCA9685 driver1(B000001);
 // PCA9685_ServoEval pwmServo(102, 470); // (-90deg, +90deg)
 PCA9685_ServoEval pwmServo(MIN_PWM, MAX_PWM); // (-90deg, +90deg)
 
+t_leg_pos legs[NUM_LEGS];
+t_leg_pos * leg_ptr[NUM_LEGS];
+
 void log_setup() {
     Serial.begin(115200);
 }
 
 void log(char * msg) {
     Serial.println(msg);
+}
+
+void log_debug_vals(float leg_foot_ext, float ankle, float hip_foot_angle, float raw_ankle, float raw_knee) {
+    Serial.println(
+        "leg_foot_ext=" + String(leg_foot_ext) +
+        "; ankle=" + String(ankle) +
+        "; hfa=" + String(hip_foot_angle) +
+        "; raw_ankle=" + String(raw_ankle) +
+        "; raw_knee=" + String(raw_knee));
 }
 
 unsigned short pwmForAngle(float angle) {
@@ -52,54 +64,55 @@ unsigned short get_current_value(int driver, int channel) {
         return driver1.getChannelPWM(channel);
 }
 
-void print_leg(t_leg_pos * leg, float hip_angle, float knee_angle, float ankle_angle) {
-    leg->hip_angle = hip_angle;
-    leg->knee_angle = knee_angle;
-    leg->ankle_angle = ankle_angle;
-    angles_to_xyz(leg);
-    xyz_to_angles(leg);
-    Serial.print(
-        String(hip_angle) +
-        "," + String(knee_angle) +
-        "," + String(ankle_angle) +
-        "," + String(leg->x) +
-        "," + String(leg->y) +
-        "," + String(leg->z) +
-        "," + String(leg->hip_angle) +
-        "," + String(leg->knee_angle) +
-        "," + String(leg->ankle_angle));
-    angles_to_xyz(leg);
-    xyz_to_angles(leg);
+void print_leg(t_leg_pos * leg) {
+    // leg->hip_angle = hip_angle;
+    // leg->knee_angle = knee_angle;
+    // leg->ankle_angle = ankle_angle;
+    // angles_to_xyz(leg);
+    // xyz_to_angles(leg);
+    // Serial.print(
+        // String(hip_angle) +
+        // "," + String(knee_angle) +
+        // "," + String(ankle_angle) +
+        // "," + 
+    //     String(leg->x) +
+    //     "," + String(leg->y) +
+    //     "," + String(leg->z) +
+    //     "," + String(leg->hip_angle) +
+    //     "," + String(leg->knee_angle) +
+    //     "," + String(leg->ankle_angle));
+    // angles_to_xyz(leg);
+    // xyz_to_angles(leg);
     Serial.println(
-        "," + String(leg->x) +
-        "," + String(leg->y) +
-        "," + String(leg->z) +
-        "," + String(leg->hip_angle) +
-        "," + String(leg->knee_angle) +
-        "," + String(leg->ankle_angle));
+        "x=" + String(leg->x) +
+        ", y=" + String(leg->y) +
+        ", z=" + String(leg->z) +
+        ", hip=" + String(leg->hip_angle) +
+        ", knee=" + String(leg->knee_angle) +
+        ", ankle=" + String(leg->ankle_angle));
 }
-
+/*
 void dump_motion_table() {
     t_leg_pos legs[NUM_LEGS];
     t_leg_pos * leg_ptr[NUM_LEGS];
     for (int leg = 0; leg < NUM_LEGS; leg++)
         leg_ptr[leg] = &legs[leg];
     init_legs(leg_ptr);
-    int da = 5;
+    int da = 15;
     Serial.println("hip,knee,ankle,x,y,z,hip2,knee2,ankle2,x2,y2,z2,hip3,knee3,ankle3");
     for (int hip_angle = - da; hip_angle <= da; hip_angle += da) {
-        for (int knee_angle = -KNEE_DEFLECTION - da; knee_angle <= KNEE_DEFLECTION + da; knee_angle += da) {
+        for (int knee_angle = -KNEE_DEFLECTION; knee_angle <= KNEE_DEFLECTION; knee_angle += da) {
             for (int ankle_angle = -ANKLE_DEFLECTION - da; ankle_angle <= ANKLE_DEFLECTION + da; ankle_angle += da) {
                 for (int leg = 0; leg < 1; leg++) {
                     print_leg(leg_ptr[leg], hip_angle, knee_angle, ankle_angle);
-                    // smooth_move_leg(leg_ptr[leg], 500, 5);
+                    smooth_move_leg(leg_ptr[leg], 500, 5);
                     // delay(1000);
                 }
             }
         }
     }
     delay(10000);
-}
+}*/
 
 
 void setup() {
@@ -114,11 +127,70 @@ void setup() {
     driver1.setPWMFrequency(50);   // Set frequency to 50Hz
     pinMode(BUZZER_PIN, OUTPUT);
     log_setup();
+    for (int leg = 0; leg < NUM_LEGS; leg++)
+        leg_ptr[leg] = &legs[leg];
+    init_legs(leg_ptr);
+    // retract();
+    // angles_to_xyz(leg_ptr[0]);
+    // print_leg(leg_ptr[0]);
+    // beeps(3);
+    // delay(100);
+    // test_leg(250, 0, 0);
+    // test_leg(250, 0, 0);
+    // test_leg(200, 0, 0);
+    // test_leg(200, 0, 50);
+    // test_leg(200, 0, -50);
+    // dump_motion_table();
     
-    retract();
-    delay(100);
+    // testleg2(0, 22.5, -90);
+    // beep(2);
+    // delay(5000);
+    testleg2(0, -22.5, 0);
+    beep(7);
+    delay(5000);
+}
+
+void testleg2(float hip, float knee, float ankle) {
+    legs[0].hip_angle = hip;
+    legs[0].knee_angle = knee;
+    legs[0].ankle_angle = ankle;
+    Serial.println(
+        "-> (hip=" + String(hip) + 
+        ", knee=" + String(knee) + 
+        ", ankle=" + String(ankle) + ") -> xyz:");
+    angles_to_xyz(leg_ptr[0]);
+    print_leg(leg_ptr[0]);
+    smooth_move_leg(leg_ptr[0], 500, 5);
     beeps(3);
-    dump_motion_table();
+    delay(5000);
+    test_leg(legs[0].x, legs[0].y, legs[0].z);
+}
+
+void test_leg(float x, float y, float z) {
+    legs[0].y = y;
+    legs[0].z = z;
+    legs[0].x = x;
+    Serial.println(
+        "-> (x=" + String(x) + 
+        ", y=" + String(y) + 
+        ", z=" + String(z) + ") -> angles:");
+    xyz_to_angles(leg_ptr[0]);
+    print_leg(leg_ptr[0]);
+    smooth_move_leg(leg_ptr[0], 500, 5);
+    beeps(4);
+    delay(5000);
+    Serial.println("angles -> xyz");
+    angles_to_xyz(leg_ptr[0]);
+    print_leg(leg_ptr[0]);
+    // smooth_move_leg(leg_ptr[0], 500, 5);
+    // beeps(5);
+    // delay(5000);
+    Serial.println("xyz -> angles");
+    xyz_to_angles(leg_ptr[0]);
+    print_leg(leg_ptr[0]);
+    smooth_move_leg(leg_ptr[0], 500, 5);
+    beeps(6);
+    delay(5000);
 }
 
 void loop() {
@@ -133,7 +205,7 @@ void loop() {
         int value = constrain(
             ppm.latestValidChannelValue(channel, 0),
             PPM_LOW, PPM_HIGH);
-        Serial.print(String(value) + " ");
+        // Serial.print(String(value) + " ");
         if (value >= PPM_LOW && value <= PPM_HIGH) {
             if (value != channel_values[channel - 1]) {
                 last_ppm_signal = loop_start;
@@ -141,8 +213,54 @@ void loop() {
             channel_values[channel - 1] = value;
         }
     }
-    Serial.println();
+    // Serial.println();
 
+    if ((loop_start - last_ppm_signal) > PPM_TIMEOUT_MS) {
+        // command loss
+        Serial.println("command loss");
+        channel_values[CHANNEL_ENABLE_DRIVE] = PPM_LOW;
+        retract();
+        if ((loop_start - last_ppm_signal) > PPM_TIMEOUT_MS * 10) {
+            last_ppm_signal = loop_start;
+            beep(20);
+        }
+    }
+    if (channel_values[CHANNEL_ENABLE_DRIVE] < PPM_CENTER) {
+        // Drive disabled
+        delay(250);
+        return;
+    }
+
+    float dx = mapf(
+        channel_values[CHANNEL_R_NS], PPM_LOW, PPM_HIGH,
+        -20, 20);
+    float dz = mapf(
+        channel_values[CHANNEL_L_NS], PPM_LOW, PPM_HIGH,
+        -20, 20);
+    float dy = mapf(
+        channel_values[CHANNEL_R_EW], PPM_LOW, PPM_HIGH,
+        -20, 20);
+    angles_to_xyz(leg_ptr[0]);
+    print_leg(leg_ptr[0]);
+    Serial.println("+ (dx=" + String(dx) + ", dy=" + String(dy) + ", dz=" + String(dz) + ")");
+    legs[0].y += dy;
+    legs[0].z += dz;
+    legs[0].x += dx;
+    xyz_to_angles(leg_ptr[0]);
+    print_leg(leg_ptr[0]);
+    // legs[0].hip_angle = mapf(
+    //     channel_values[CHANNEL_R_EW], PPM_LOW, PPM_HIGH,
+    //     -HIP_DEFLECTION, HIP_DEFLECTION);
+    // legs[0].knee_angle = mapf(
+    //     channel_values[CHANNEL_L_NS], PPM_LOW, PPM_HIGH,
+    //     -KNEE_DEFLECTION, KNEE_DEFLECTION);
+    // legs[0].ankle_angle = mapf(
+    //     channel_values[CHANNEL_R_NS], PPM_LOW, PPM_HIGH,
+    //     -ANKLE_DEFLECTION, ANKLE_DEFLECTION);
+
+    smooth_move_leg(leg_ptr[0], 500, 5);
+    // angles_to_xyz(&legs[0]);
+/*
     float ride_angle = map(
         channel_values[CHANNEL_RIDE_HEIGHT],
         PPM_LOW, PPM_HIGH, -45, 90);
@@ -182,6 +300,6 @@ void loop() {
         spin(spin_rate, ride_angle);
     } else {
         stand(ride_angle);
-    }
+    }*/
 }
 // */

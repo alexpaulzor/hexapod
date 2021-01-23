@@ -22,6 +22,8 @@ def angles_to_xyz(leg):
     return leg
 */
 
+
+
 void angles_to_xyz(t_leg_pos * leg) {
 	leg->x = BODY_PIVOT_R * cos(DEG2RAD * (leg->rotation));
 	leg->y = BODY_PIVOT_R * sin(DEG2RAD * (leg->rotation));
@@ -36,9 +38,9 @@ void angles_to_xyz(t_leg_pos * leg) {
 		LEG_L * sin(DEG2RAD * (leg->knee_angle)) +
 		FOOT_L * sin(DEG2RAD * (leg->knee_angle + (leg->ankle_angle + ANKLE_BIAS))));
 
-	leg->x += extension_x * cos(DEG2RAD * (leg->rotation - leg->hip_angle));
-	leg->y += extension_x * sin(DEG2RAD * (leg->rotation - leg->hip_angle));
-	leg->z -= extension_z;
+	leg->x += extension_x * cos(DEG2RAD * (leg->rotation + leg->hip_angle));
+	leg->y += extension_x * sin(DEG2RAD * (leg->rotation + leg->hip_angle));
+	leg->z += extension_z;
 }
 
 /*
@@ -72,8 +74,10 @@ void xyz_to_angles(t_leg_pos * leg) {
 	float dz = leg->z - HIP_DZ;
 
     // TODO: make sure atan sign is right
-	leg->hip_angle = (atan(dy / dx) * RAD2DEG - leg->rotation);
-	float extension_x = sqrt(dx * dx + dy * dy);
+	leg->hip_angle = constrain(
+        (atan(dy / dx) * RAD2DEG - leg->rotation),
+        -HIP_DEFLECTION, HIP_DEFLECTION);
+	// float extension_x = sqrt(dx * dx + dy * dy);
 
 	dx -= HIP_L * cos(DEG2RAD * (leg->rotation + leg->hip_angle));
     dy -= HIP_L * sin(DEG2RAD * (leg->rotation + leg->hip_angle));
@@ -87,25 +91,31 @@ void xyz_to_angles(t_leg_pos * leg) {
     if (leg_foot_ext > LEG_L + FOOT_L) {
         // full extension
         ankle = 0;
-    } else if (loc_top < 0 || loc_top > loc_bottom) {
+    } /*else if (loc_top < 0 || loc_top > loc_bottom) {
         ankle = 90;
-    } else {
-        ankle = 180 - acos(loc_top / loc_bottom) * RAD2DEG;
+    } */else {
+        ankle = acos(loc_top / loc_bottom) * RAD2DEG;
     }
 
-    leg->ankle_angle = ankle - ANKLE_BIAS;
+    float raw_ankle = ANKLE_BIAS - ankle;
+
+    leg->ankle_angle = constrain(raw_ankle, -90, 90);
     
     // hip_foot_angle is line-of-sight from hip to tip of foot
-    float hip_foot_angle;
-    if (leg_foot_ext != 0 && abs(dz) <= leg_foot_ext) {
-        hip_foot_angle = asin(dz / leg_foot_ext) * RAD2DEG;
-    } else {
-        hip_foot_angle = 0;
-    }
+    // if (leg_foot_ext != 0 && abs(dz) <= leg_foot_ext) {
+    float hip_foot_angle = asin(dz / leg_foot_ext) * RAD2DEG;
+    float raw_knee = hip_foot_angle - 90 + ankle/2.0;
+    log_debug_vals(leg_foot_ext, ankle, hip_foot_angle, raw_ankle, raw_knee);
+    leg->knee_angle = constrain(-raw_knee, -90, 90);
+    
+    // } else {
+    //     leg->knee_angle = -90; //hip_foot_angle - 90 + ankle/2;
+    // }
     // knee_angle + hip_foot_angle = 180
-    leg->knee_angle = constrain(
-        ankle/2 - hip_foot_angle - 90,
-        -90, 90);
+    // leg->knee_angle = constrain(
+    //     ankle/2 - hip_foot_angle - 90,
+    //     -90, 90);
+    
 }
 
 int exceeds_rom(t_leg_pos * leg) {
