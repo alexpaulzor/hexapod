@@ -1,29 +1,5 @@
 #include "servobot.h"
 
-/*
-def angles_to_xyz(leg):
-    leg.x = BODY_PIVOT_R * math.cos(DEG2RAD * (leg.rotation))
-    leg.y = BODY_PIVOT_R * math.sin(DEG2RAD * (leg.rotation))
-    leg.z = HIP_DZ
-
-    extension_x = (
-        HIP_L + 
-        LEG_L * math.cos(DEG2RAD * (leg.knee_angle)) +
-        FOOT_L * math.cos(DEG2RAD * (leg.knee_angle + (leg.ankle_angle + ANKLE_BIAS))))
-
-    leg_z = LEG_L * math.sin(DEG2RAD * (leg.knee_angle))
-    foot_z = FOOT_L * math.sin(DEG2RAD * (leg.knee_angle + (leg.ankle_angle + ANKLE_BIAS)))
-    extension_z = leg_z + foot_z
-
-    leg.x += extension_x * math.cos(DEG2RAD * (leg.rotation - leg.hip_angle))
-    leg.y += extension_x * math.sin(DEG2RAD * (leg.rotation - leg.hip_angle))
-    leg.z -= extension_z
-    print(f"{locals()}")
-    return leg
-*/
-
-
-
 void angles_to_xyz(t_leg_pos * leg) {
 	leg->x = BODY_PIVOT_R * cos(DEG2RAD * (leg->rotation));
 	leg->y = BODY_PIVOT_R * sin(DEG2RAD * (leg->rotation));
@@ -42,31 +18,6 @@ void angles_to_xyz(t_leg_pos * leg) {
 	leg->y += extension_x * sin(DEG2RAD * (leg->rotation + leg->hip_angle));
 	leg->z += extension_z;
 }
-
-/*
-def xyz_to_angles(leg):
-    """Prefer vertical feet (ankle_angle + ANKLE_BIAS ~= -knee_angle)
-    """
-
-    dx = leg.x - BODY_PIVOT_R * math.cos(DEG2RAD * (leg.rotation));
-    dy = leg.y - BODY_PIVOT_R * math.sin(DEG2RAD * (leg.rotation));
-    dz = leg.z - HIP_DZ;
-
-    leg.hip_angle = (math.atan2(dy, dx) * RAD2DEG - leg.rotation) % 180;
-
-    dx -= HIP_L * math.cos(DEG2RAD * (leg.rotation + leg.hip_angle))
-    dy -= HIP_L * math.sin(DEG2RAD * (leg.rotation + leg.hip_angle))
-
-    leg_foot_ext = math.sqrt(dx * dx + dy * dy + dz * dz);
-    # leg_foot_ext is linear distance from hip pivot to foot tip (long side of iso triangle with ankle_angle as center)
-    # law of cosines to the rescue
-    leg.ankle_angle = 180 - math.acos((LEG_L * LEG_L + FOOT_L * FOOT_L - leg_foot_ext * leg_foot_ext) / (2 * LEG_L * FOOT_L)) * RAD2DEG - ANKLE_BIAS
-
-    leg.knee_angle = math.asin(dz / leg_foot_ext) * RAD2DEG
-    print(f"{locals()}")
-    
-    return leg
-*/
 
 void xyz_to_angles(t_leg_pos * leg) {
 	float dx = leg->x - BODY_PIVOT_R * cos(DEG2RAD * (leg->rotation));
@@ -89,60 +40,30 @@ void xyz_to_angles(t_leg_pos * leg) {
     float raw_ankle;
     if (leg_foot_ext > LEG_L + FOOT_L) {
         // full extension
-        raw_ankle = 0;
-    } /*else if (loc_top < 0 || loc_top > loc_bottom) {
-        ankle = 90;
-    } */else {
+        raw_ankle = 180;
+    } else {
         raw_ankle = acos(loc_top / loc_bottom) * RAD2DEG;
     }
 
     float ankle = 180 - raw_ankle - ANKLE_BIAS;
 
-    
-    
-    // hip_foot_angle is line-of-sight from hip to tip of foot
-    // if (leg_foot_ext != 0 && abs(dz) <= leg_foot_ext) {
     float hip_foot_angle = asin(dz / leg_foot_ext) * RAD2DEG;
 
     float raw_knee = hip_foot_angle - 90 + raw_ankle/2.0;
 
-    log_debug_vals(leg_foot_ext, ankle, hip_foot_angle, raw_ankle, raw_knee);
-    
-    /*
-    Here there are a few cases to handle:
-
-    dz > 0 | hfa > 0 |
-    -------|---------|
-    false  | false   |
-    false  | true    |
-    true   | false   |
-    true   | true    | 
-    */
-
-    // dz < 0 (foot tip above body)
+    // log_debug_vals(leg_foot_ext, ankle, hip_foot_angle, raw_ankle, raw_knee);
 
     leg->ankle_angle = constrain(ankle, -90, 90);
     leg->knee_angle = constrain(raw_knee, -90, 90);
     
-
-
-
-
-    // } else {
-    //     leg->knee_angle = -90; //hip_foot_angle - 90 + ankle/2;
-    // }
-    // knee_angle + hip_foot_angle = 180
-    // leg->knee_angle = constrain(
-    //     ankle/2 - hip_foot_angle - 90,
-    //     -90, 90);
-    
 }
 
-int exceeds_rom(t_leg_pos * leg) {
+int within_rom(t_leg_pos * leg) {
     return (
-        (-HIP_DEFLECTION <= leg->hip_angle && leg->hip_angle <= HIP_DEFLECTION) &&
-        (-KNEE_DEFLECTION <= leg->knee_angle && leg->knee_angle <= KNEE_DEFLECTION) &&
-        (-ANKLE_DEFLECTION <= leg->ankle_angle && leg->ankle_angle <= ANKLE_DEFLECTION));
+        (-HIP_DEFLECTION < leg->hip_angle && leg->hip_angle < HIP_DEFLECTION) &&
+        (-KNEE_DEFLECTION < leg->knee_angle && leg->knee_angle < KNEE_DEFLECTION) &&
+        (-ANKLE_DEFLECTION <= leg->ankle_angle && leg->ankle_angle <= ANKLE_DEFLECTION) &&
+        leg->ankle_angle != 0); // != 0 because this means the leg is pointed straight away, not articulated
 }
 
 void set_angle(unsigned short driver, unsigned short channel, float angle) {
@@ -271,7 +192,7 @@ void smooth_move_sequence(float leg_angles[][NUM_LEGS][3], int num_moves, long d
         smooth_move_all(leg_angles[i], duration_ms, interval_ms);
     }
 }
-
+/*
 void flatten() {
     // set_all_angles(DRV_CH_HIPS, NUM_LEGS, 0);
     // set_all_angles(DRV_CH_KNEES, NUM_LEGS, 0);
@@ -285,7 +206,7 @@ void flatten() {
         {0, 0, -45}
     };
     smooth_move_all(flat_angles, 100, 5);
-}
+}*/
 
 float get_ankle_angle(float knee_angle) {
     if (knee_angle > 0) 
@@ -297,7 +218,7 @@ float get_step_duration_ms(float speed) {
     return map(abs(speed), 0, 1, 1000, 200);
 }
 
-void stand(float ride_angle) {
+void stand(t_leg_pos * legs[NUM_LEGS], float ride_angle) {
     /*
         Neutral position at ride_angle (deg).
 
@@ -311,28 +232,23 @@ void stand(float ride_angle) {
         90         | 200 | 90   | -45   | legs and feet vertical
     */
     
-    float ankle_angle = get_ankle_angle(ride_angle);
-    float stand_angles[NUM_LEGS][3] = {
-        {0, ride_angle, ankle_angle}, 
-        {0, ride_angle, ankle_angle}, 
-        {0, ride_angle, ankle_angle}, 
-        {0, ride_angle, ankle_angle}, 
-        {0, ride_angle, ankle_angle}, 
-        {0, ride_angle, ankle_angle}
-    };
-    smooth_move_all(stand_angles, get_step_duration_ms(1.0), 5);
+    for (int leg = 0; leg < NUM_LEGS; leg++) {
+        legs[leg]->hip_angle = 0;
+        legs[leg]->knee_angle = ride_angle;
+        legs[leg]->ankle_angle = get_ankle_angle(ride_angle);
+        angles_to_xyz(legs[0]);
+    }
+    smooth_move_legs(legs, get_step_duration_ms(1.0), 5);
 }
 
-void retract() {
-    float retract_angles[NUM_LEGS][3] = {
-        {0, -90, 90}, 
-        {0, -90, 90}, 
-        {0, -90, 90}, 
-        {0, -90, 90}, 
-        {0, -90, 90}, 
-        {0, -90, 90}
-    };
-    smooth_move_all(retract_angles, get_step_duration_ms(1.0), 5);
+void retract(t_leg_pos * legs[NUM_LEGS]) {
+    for (int leg = 0; leg < NUM_LEGS; leg++) {
+        legs[leg]->hip_angle = 0;
+        legs[leg]->knee_angle = -90;
+        legs[leg]->ankle_angle = 90;
+        angles_to_xyz(legs[0]);
+    }
+    smooth_move_legs(legs, get_step_duration_ms(1.0), 5);
 }
 
 void spin(float spin_rate, float ride_angle) {
@@ -425,7 +341,7 @@ void spin(float spin_rate, float ride_angle) {
         sizeof(leg_angles)/sizeof(leg_angles[0]),
         get_step_duration_ms(spin_rate), 5);
 }
-
+/*
 void walk_derpy(float direction, float speed, float ride_angle) {
 
     float ankle_angle = get_ankle_angle(ride_angle);
@@ -499,7 +415,7 @@ void walk_derpy(float direction, float speed, float ride_angle) {
         sizeof(leg_angles)/sizeof(leg_angles[0]),
         10*get_step_duration_ms(speed), 5);
     // delay(1000);
-}
+}*/
 
 void init_legs(t_leg_pos * legs[NUM_LEGS]) {
     for (unsigned short leg = 0; leg < NUM_LEGS; leg++) {
@@ -519,7 +435,7 @@ void init_legs(t_leg_pos * legs[NUM_LEGS]) {
     }
 }
 
-void walk(float direction, float speed, float ride_angle) {
+void walk(t_leg_pos * legs[NUM_LEGS], float direction, float speed, float ride_angle) {
     /*
         Use t_leg_pos, angles_to_xyz(), and xyz_to_angles()
         to orchestrate motion one leg at a time. 
@@ -530,290 +446,39 @@ void walk(float direction, float speed, float ride_angle) {
         * Move all legs as far as possible along bearing "direction" without lifting any legs.
         * When a leg reaches its end of motion, lift that leg to a neutral lifted position
         * Return (if still walking, the outer loop will continue the same motion until the next leg needs to move).
-
-        TODO: How to detect when ROM exceeded and step that leg without hitting math errors?
     */
-
-    // TODO: make this a global var?
-    t_leg_pos legs[NUM_LEGS];
-    t_leg_pos * leg_ptr[NUM_LEGS];
-    for (int leg = 0; leg < NUM_LEGS; leg++)
-        leg_ptr[leg] = &legs[leg];
-    init_legs(leg_ptr);
+    float dx = speed * 10 * cos(direction);
+    float dy = speed * 10 * sin(direction);
+    // float avg_z = 0;
+    for (int leg = 0; leg < NUM_LEGS; leg++) {
+        angles_to_xyz(legs[leg]);
+        // avg_z += legs[leg]->z;
+    }
+    // avg_z = avg_z / NUM_LEGS;
 
     for (int leg = 0; leg < NUM_LEGS; leg++) {
-        legs[leg].knee_angle = -45;
-        legs[leg].ankle_angle = get_ankle_angle(legs[leg].knee_angle); 
-        angles_to_xyz(leg_ptr[leg]);
-    }
-    smooth_move_legs(leg_ptr, 2000, 5);  // Neutral low stand
-    beeps(3);
-    delay(1000);
-    for (int leg = 0; leg < NUM_LEGS; leg++) {
-        xyz_to_angles(leg_ptr[leg]);
-    }
-    smooth_move_legs(leg_ptr, 2000, 5);  // Should be noop
-    beeps(5);
-    delay(1000);
-
-    int num_segments = 3;
-    
-    // target step size is <100mm in increments of 10mm
-    float dx = speed * 100 * cos(direction) / num_segments;
-    float dy = speed * 100 * sin(direction) / num_segments;
-
-    // int rom_hit = 0;
-    for (int segment = 0; segment < num_segments; segment++) {
-        for (int leg = 0; leg < NUM_LEGS; leg++) {
-            legs[leg].x += dx;
-            legs[leg].y += dy;
-            xyz_to_angles(leg_ptr[leg]);
-            if (exceeds_rom(leg_ptr[leg])) {
-                // beeps(leg);
-                // delay(1000);
-                // beeps(leg);
-                // delay(200);
-                // rom_hit = 1;
-                legs[leg].hip_angle = 0;
-                if (legs[leg].z < 0) {
-                    legs[leg].knee_angle = -45;
-                    legs[leg].ankle_angle = -90;
-                } else {
-                    legs[leg].knee_angle = -45;
-                    legs[leg].ankle_angle = get_ankle_angle(legs[leg].knee_angle);
-                }
-                angles_to_xyz(leg_ptr[leg]);
-            }
+        // detect legs in the air (z < average?)
+        if (!within_rom(legs[leg])) {
+            // TODO: Find optimal x,y,z for lifted legs to drop
+            legs[leg]->hip_angle = 0;
+            legs[leg]->knee_angle = ride_angle;
+            legs[leg]->ankle_angle = get_ankle_angle(ride_angle);
         }
-
-        smooth_move_legs(leg_ptr, 2000, 5);  // Should be noop
     }
-        // if (rom_hit) {
-        //     beeps(4);
-        //     delay(500);
-        //     beeps(4);
-        //     delay(500);
-        //     beeps(4);
-        //     return;
-        // }
-
-    // }
-
-
-    // for (int leg = 0; leg < NUM_LEGS; leg++) {
-    //     angles_to_xyz(leg_ptr[leg]);
-    //     xyz_to_angles(leg_ptr[leg]);
-    // }
-    // smooth_move_legs(leg_ptr, 2000, 5);  // Should be NOOP!!
-    // beeps(5);
-    // delay(10000);
-    // // for (int i = 1; i < 10; i++) {
-    // //     legs[0].x += 50;
-    // //     xyz_to_angles(leg_ptr[0]);
-    // //     smooth_move_legs(leg_ptr, 2000, 5);
-    // //     beeps(i);
-    // //     delay(1000);
-    // // }
-        
-    // // beeps(2);
-    // // legs[0].x += 50;
-    // // xyz_to_angles(leg_ptr[0]);
-    // // smooth_move_legs(leg_ptr, 2000, 5);
     
-    // // beeps(3);
-    // // legs[0].z -= 50;
-    // // xyz_to_angles(leg_ptr[0]);
-    // // smooth_move_legs(leg_ptr, 2000, 5);
 
-    // // beeps(4);
-    // // legs[0].y -= 50;
-    // // xyz_to_angles(leg_ptr[0]);
-    // // smooth_move_legs(leg_ptr, 2000, 5);
-
-    // // beeps(5);
-    // // legs[0].y += 100;
-    // // xyz_to_angles(leg_ptr[0]);
-    // // smooth_move_legs(leg_ptr, 2000, 5);
-    
-    // // beeps(6);
-    // // legs[3].ankle_angle = 90;
-    // // smooth_move_legs(leg_ptr, 2000, 5); // _should_ be a no-op
-
-    // beeps(1);
-    // // for (int leg = 0; leg < NUM_LEGS; leg++) {
-    // //     xyz_to_angles(leg_ptr[leg]);
-    // //     if (legs[leg].hip_angle < -90 || legs[leg].hip_angle > 90) {
-    // //         legs[leg].hip_angle = -90;
-    // //         legs[leg].knee_angle = -90;
-    // //         legs[leg].ankle_angle = -90;
-    // //     }
-    // //     if (legs[leg].knee_angle < -90 || legs[leg].knee_angle > 90) {
-    // //         legs[leg].hip_angle = -90;
-    // //         legs[leg].knee_angle = -90;
-    // //         legs[leg].ankle_angle = -90;
-    // //     }
-    // //     if (legs[leg].ankle_angle < -90 || legs[leg].ankle_angle > 90) {
-    // //         legs[leg].hip_angle = -90;
-    // //         legs[leg].knee_angle = -90;
-    // //         legs[leg].ankle_angle = -90;
-    // //     }
-    // // }
-    // // delay(1000);
-    // // smooth_move_legs(leg_ptr, 2000, 5); // should _still_ be a no-op
-    // // delay(1000);
-    // // legs[0].knee_angle = -90;
-    // // smooth_move_legs(leg_ptr, 2000, 5); // should _still_ be a no-op
-    // delay(1000);
-    
-    // // float lowest_z[] = {0, 0, 0};  // lowest 3 legs make a tripod
-    // // for (int i = 0; i < NUM_LEGS; i++) {
-    // //     if (legs[i].z < lowest_z[0]) {
-    // //         lowest_z[2] = lowest_z[1];
-    // //         lowest_z[1] = lowest_z[0];
-    // //         lowest_z[0] = legs[i].z;
-    // //     } else if (legs[i].z < lowest_z[1]) {
-    // //         lowest_z[2] = lowest_z[1];
-    // //         lowest_z[1] = legs[i].z;
-    // //     } else if (legs[i].z < lowest_z[2]) {
-    // //         lowest_z[2] = legs[i].z;
-    // //     }
-    // // }
-    // // target z is lowest_z[2]
-}
-
-// void plan_steps() {
-//     for (int leg_group = 0; leg_group < 2; leg_group++) {
-
-//     }
-// }
-
-/*
-void dance() {
-    // {hip, knee, ankle}
-    float dance_moves[][NUM_LEGS][3] = {
-        {{0, 0, 0}, 
-            {0, 0, 0}, 
-            {0, 0, 0}, 
-            {0, 0, 0}, 
-            {0, 0, 0}, 
-            {0, 0, 0}},
-        {{0, -45, 0}, 
-            {0, -45, 0},  
-            {0, 0, 0}, 
-            {0, 0, 0},  
-            {0, 0, 0},  
-            {0, 0, 0}},
-        {{0, -45, 90}, 
-            {0, -45, 90},  
-            {0, 0, 0}, 
-            {0, 0, 0},  
-            {0, 0, 0},  
-            {0, 0, 0}},
-        {{0, -45, 45}, 
-            {0, -45, 45}, 
-            {0, 0, 0}, 
-            {0, 0, 0},  
-            {0, 0, 0},  
-            {0, 0, 00}},
-        {{30, -45, 45}, 
-            {30, -45, 45}, 
-            {0, 0, 0}, 
-            {0, 0, 0}, 
-            {0, 0, 0}, 
-            {0, 0, 0}},
-        {{-30, -45, 45}, 
-            {-30, -45, 45}, 
-            {0, 0, 0}, 
-            {0, 0, 0}, 
-            {0, 0, 0}, 
-            {0, 0, 0}},
-        {{0, -45, 45}, 
-            {0, -45, 45}, 
-            {0, 0, 0}, 
-            {0, 0, 0},  
-            {0, 0, 0},  
-            {0, 0, 00}},
-        {{0, -45, -45}, 
-            {0, -45, 90}, 
-            {0, 0, 0}, 
-            {0, 0, 0},  
-            {0, 0, 0},  
-            {0, 0, 00}},
-        {{0, -45, 90}, 
-            {0, -45, -90}, 
-            {0, 0, 0}, 
-            {0, 0, 0},  
-            {0, 0, 0},  
-            {0, 0, 00}},
-        {{0, -45, 0}, 
-            {0, -45, 0}, 
-            {0, 0, 0}, 
-            {0, 0, 0},  
-            {0, 0, 0},  
-            {0, 0, 00}},
-        {{0, -45, 90}, 
-            {0, -45, 9}, 
-            {0, 0, 0}, 
-            {0, 0, 0},  
-            {0, 0, 0},  
-            {0, 0, 0}},
-        {{0, 0, 90}, 
-            {0, 0, 90}, 
-            {0, 0, 0}, 
-            {0, 0, 0},  
-            {0, 0, 0},  
-            {0, 0, 0}},
-        {{0, 45, 45}, 
-            {0, 45, 45}, 
-            {0, 0, 0}, 
-            {0, 0, 0},  
-            {0, 0, 0},  
-            {0, 0, 0}},
-        {{0, 45, 45}, 
-            {0, -90, -90}, 
-            {0, 0, 0}, 
-            {0, 0, 0},  
-            {0, 0, 0},  
-            {0, 0, 0}},
-        {{0, -90, -90}, 
-            {0, -90, -90}, 
-            {0, 0, 0}, 
-            {0, 0, 0},  
-            {0, 0, 0},  
-            {0, 0, 0}},
-        {{0, -90, -90}, 
-            {0, 45, 45}, 
-            {0, 0, 0}, 
-            {0, 0, 0},  
-            {0, 0, 0},  
-            {0, 0, 0}},
-        {{0, 45, 45}, 
-            {0, 45, 45}, 
-            {0, 0, 0}, 
-            {0, 0, 0},  
-            {0, 0, 0},  
-            {0, 0, 0}},
-        {{0, 45, 45}, 
-            {0, 45, 45}, 
-            {0, 0, 0}, 
-            {0, 0, 0},  
-            {0, 0, 0},  
-            {0, 0, 0}},
-        {{0, -45, 0}, 
-            {0, -45, 0},  
-            {0, 0, 0}, 
-            {0, 0, 0},  
-            {0, 0, 0},  
-            {0, 0, 0}},
-        {{0, 0, 0}, 
-            {0, 0, 0}, 
-            {0, 0, 0}, 
-            {0, 0, 0}, 
-            {0, 0, 0}, 
-            {0, 0, 0}},
-    };
-    for (int i = 0; i < sizeof(dance_moves)/sizeof(dance_moves[0]); i++) {
-        smooth_move_all(dance_moves[i], 1500, 5);
+    for (int leg = 0; leg < 1+0*NUM_LEGS; leg++) {
+        legs[leg]->x += dx;
+        legs[leg]->y += dy;
+        xyz_to_angles(legs[leg]);
+        if (!within_rom(legs[leg])) {
+            // Raise leg to be dropped next step
+            legs[leg]->hip_angle = 0;
+            legs[leg]->knee_angle = -90;
+            legs[leg]->ankle_angle = -90;
+            angles_to_xyz(legs[leg]);
+        }
     }
+
+    smooth_move_legs(legs, 2000, 5);
 }
-// */

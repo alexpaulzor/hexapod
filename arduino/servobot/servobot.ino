@@ -141,10 +141,10 @@ void setup() {
     for (int leg = 0; leg < NUM_LEGS; leg++)
         leg_ptr[leg] = &legs[leg];
     init_legs(leg_ptr);
-    retract();
+    retract(leg_ptr);
     // angles_to_xyz(leg_ptr[0]);
     // print_leg(leg_ptr[0]);
-    // beeps(3);
+    beeps(3);
     // delay(100);
     // test_leg(250, 0, 0);
     // test_leg(250, 0, 0);
@@ -153,15 +153,15 @@ void setup() {
     // test_leg(200, 0, -50);
     // dump_motion_table();
     
-    testleg2(0, -60, -60);
+    // testleg2(0, -60, -60);
     // beep(2);
     // delay(5000);
     // testleg2(0, -22.5, 0);
     // testleg2(10, -30, -30);
-    beep(7);
-    delay(5000);
+    // beeps(7);
+    // delay(5000);
 }
-
+/*
 void testleg2(float hip, float knee, float ankle) {
     legs[0].hip_angle = hip;
     legs[0].knee_angle = knee;
@@ -203,7 +203,7 @@ void test_leg(float x, float y, float z) {
     smooth_move_leg(leg_ptr[0], 500, 5);
     beeps(6);
     delay(5000);
-}
+}*/
 
 void loop() {
     // 
@@ -225,54 +225,7 @@ void loop() {
             channel_values[channel - 1] = value;
         }
     }
-    // Serial.println();
-
-    if ((loop_start - last_ppm_signal) > PPM_TIMEOUT_MS) {
-        // command loss
-        Serial.println("command loss");
-        channel_values[CHANNEL_ENABLE_DRIVE] = PPM_LOW;
-        retract();
-        if ((loop_start - last_ppm_signal) > PPM_TIMEOUT_MS * 10) {
-            last_ppm_signal = loop_start;
-            beep(20);
-        }
-    }
-    if (channel_values[CHANNEL_ENABLE_DRIVE] < PPM_CENTER) {
-        // Drive disabled
-        delay(250);
-        return;
-    }
-
-    float dx = mapf(
-        channel_values[CHANNEL_R_NS], PPM_LOW, PPM_HIGH,
-        -20, 20);
-    float dz = mapf(
-        channel_values[CHANNEL_L_NS], PPM_LOW, PPM_HIGH,
-        -20, 20);
-    float dy = mapf(
-        channel_values[CHANNEL_R_EW], PPM_LOW, PPM_HIGH,
-        -20, 20);
-    angles_to_xyz(leg_ptr[0]);
-    print_leg(leg_ptr[0]);
-    Serial.println("+ (dx=" + String(dx) + ", dy=" + String(dy) + ", dz=" + String(dz) + ")");
-    legs[0].y += dy;
-    legs[0].z += dz;
-    legs[0].x += dx;
-    xyz_to_angles(leg_ptr[0]);
-    print_leg(leg_ptr[0]);
-    // legs[0].hip_angle = mapf(
-    //     channel_values[CHANNEL_R_EW], PPM_LOW, PPM_HIGH,
-    //     -HIP_DEFLECTION, HIP_DEFLECTION);
-    // legs[0].knee_angle = mapf(
-    //     channel_values[CHANNEL_L_NS], PPM_LOW, PPM_HIGH,
-    //     -KNEE_DEFLECTION, KNEE_DEFLECTION);
-    // legs[0].ankle_angle = mapf(
-    //     channel_values[CHANNEL_R_NS], PPM_LOW, PPM_HIGH,
-    //     -ANKLE_DEFLECTION, ANKLE_DEFLECTION);
-
-    smooth_move_leg(leg_ptr[0], 500, 5);
-    // angles_to_xyz(&legs[0]);
-/*
+    
     float ride_angle = map(
         channel_values[CHANNEL_RIDE_HEIGHT],
         PPM_LOW, PPM_HIGH, -45, 90);
@@ -284,18 +237,18 @@ void loop() {
     float lr = mapf(channel_values[CHANNEL_LR], PPM_LOW, PPM_HIGH, -1.0, 1.0);
     float walk_speed = sqrt(fb * fb + lr * lr);
     float direction = atan(fb / lr);
-    Serial.print("ride_angle: " + String(ride_angle));
-    Serial.print("; spin_rate: " + String(spin_rate));
-    Serial.print("; fb: " + String(fb));
-    Serial.print("; lr: " + String(lr));
-    Serial.print("; walk_speed: " + String(walk_speed));
-    Serial.print("; direction: " + String(direction));
-    Serial.println();
+    // Serial.print("ride_angle: " + String(ride_angle));
+    // Serial.print("; spin_rate: " + String(spin_rate));
+    // Serial.print("; fb: " + String(fb));
+    // Serial.print("; lr: " + String(lr));
+    // Serial.print("; walk_speed: " + String(walk_speed));
+    // Serial.print("; direction: " + String(direction));
+    // Serial.println();
     if ((loop_start - last_ppm_signal) > PPM_TIMEOUT_MS) {
         // command loss
         Serial.println("command loss");
         channel_values[CHANNEL_ENABLE_DRIVE] = PPM_LOW;
-        retract();
+        retract(leg_ptr);
         if ((loop_start - last_ppm_signal) > PPM_TIMEOUT_MS * 10) {
             last_ppm_signal = loop_start;
             beep(20);
@@ -306,12 +259,13 @@ void loop() {
         delay(250);
 
     } else if (abs(fb) > DEADZONE_RATIO || abs(lr) > DEADZONE_RATIO) {
-        walk(direction, walk_speed, ride_angle);
+        walk(leg_ptr, direction, walk_speed, ride_angle);
     } else if (abs(spin_rate) > DEADZONE_RATIO) {
         // Spin in place
+        // TODO: port to use t_leg_pos
         spin(spin_rate, ride_angle);
     } else {
-        stand(ride_angle);
-    }*/
+        stand(leg_ptr, ride_angle);
+    }
 }
 // */

@@ -105,7 +105,7 @@ unsigned short pwmForAngle(float angle);
 void set_motor(int driver, int channel, unsigned short pwm);
 unsigned short get_current_value(int driver, int channel);
 
-void log_debug_vals(float leg_foot_ext, float ankle, float hip_foot_angle, float raw_ankle, float raw_knee);
+// void log_debug_vals(float leg_foot_ext, float ankle, float hip_foot_angle, float raw_ankle, float raw_knee);
 
 float mapf(float x, float in_min, float in_max, float out_min, float out_max) {
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
