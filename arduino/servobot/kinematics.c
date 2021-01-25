@@ -193,21 +193,6 @@ void smooth_move_sequence(float leg_angles[][NUM_LEGS][3], int num_moves, long d
         smooth_move_all(leg_angles[i], duration_ms, interval_ms);
     }
 }
-/*
-void flatten() {
-    // set_all_angles(DRV_CH_HIPS, NUM_LEGS, 0);
-    // set_all_angles(DRV_CH_KNEES, NUM_LEGS, 0);
-    // set_all_angles(DRV_CH_ANKLES, NUM_LEGS, 0);
-    float flat_angles[NUM_LEGS][3] = {
-        {0, 0, -45}, 
-        {0, 0, -45}, 
-        {0, 0, -45}, 
-        {0, 0, -45}, 
-        {0, 0, -45}, 
-        {0, 0, -45}
-    };
-    smooth_move_all(flat_angles, 100, 5);
-}*/
 
 float get_ankle_angle(float knee_angle) {
     if (knee_angle > 0) 
@@ -315,27 +300,6 @@ void spin(float spin_rate, float ride_angle) {
             {-hip_angle, ride_angle, ankle_angle}, 
             {hip_angle, -90, ankle_angle},
             {-hip_angle, ride_angle, ankle_angle}}, 
-        // {  // center again
-        //     {0, -90, ankle_angle}, 
-        //     {0, ride_angle, ankle_angle}, 
-        //     {0, -90, ankle_angle}, 
-        //     {0, ride_angle, ankle_angle}, 
-        //     {0, -90, ankle_angle},
-        //     {0, ride_angle, ankle_angle}}, 
-        // {  // stand neutral
-        //     {0, ride_angle, ankle_angle}, 
-        //     {0, ride_angle, ankle_angle}, 
-        //     {0, ride_angle, ankle_angle}, 
-        //     {0, ride_angle, ankle_angle}, 
-        //     {0, ride_angle, ankle_angle}, 
-        //     {0, ride_angle, ankle_angle}},
-        // {  // move unlifted group 0 forward, lifted leg group 1 backward
-        //     {hip_angle, -ride_angle, ankle_angle}, 
-        //     {-hip_angle, ride_angle, ankle_angle}, 
-        //     {hip_angle, -ride_angle, ankle_angle}, 
-        //     {-hip_angle, ride_angle, ankle_angle}, 
-        //     {hip_angle, -ride_angle, ankle_angle}, 
-        //     {-hip_angle, ride_angle, ankle_angle}},
     };
     smooth_move_sequence(
         leg_angles, 

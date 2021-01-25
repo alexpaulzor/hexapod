@@ -55,7 +55,11 @@
 #define INTERRUPT_PIN 3
 #define PPM_TIMEOUT_MS 1000
 
-#define BUZZER_PIN 9
+// #define BUZZER_PIN 9
+#define BUZZER_DRIVER 0
+#define BUZZER_CHANNEL 15
+
+#define PCA_ENABLE_PIN A3
 
 #define NUM_CHANNELS 7
 
@@ -109,19 +113,6 @@ unsigned short get_current_value(int driver, int channel);
 
 float mapf(float x, float in_min, float in_max, float out_min, float out_max) {
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
-}
-
-void beep(long duration_ms) {
-	analogWrite(BUZZER_PIN, 127);
-	delay(duration_ms);
-	analogWrite(BUZZER_PIN, 0);
-}
-
-void beeps(unsigned short count) {
-	for (int i = 0; i < count; i++) {
-		beep(50);
-		delay(50);
-	}
 }
 
 #endif // SERVOBOT_H
