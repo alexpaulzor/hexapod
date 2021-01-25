@@ -14,9 +14,9 @@ foot_rom = 180;
 // function knee_rotation() = -knee_rom * abs(sin(180*$t*2)) + knee_rom/2 + knee_bias;
 // function foot_rotation() = foot_rom * abs(sin(180*$t*4)) - foot_rom/2;
 
-hip_angle = 10;
-knee_angle = -30;
-ankle_angle = -90;
+hip_angle = 15;
+knee_angle = 30;
+ankle_angle = 0;
 
 function hip_rotation() = hip_angle;
 function knee_rotation() = knee_angle + knee_bias;
@@ -355,7 +355,7 @@ module wire_clip() {
 
 hexbody_or = 125;
 hexbody_pivot_r = 100;
-hexbody_limit = 30; //360;
+hexbody_limit = 360;
 hexbody_riser_l = 20;
 hexbody_riser_w = 24;
 hexbody_riser_h = ds3225_flange_z;
@@ -478,7 +478,7 @@ module hexbody() {
 }
 
 // 	hexleg();
-hexbody();
+// hexbody();
 
 module hexbody_stl() {
 	hexbody_bottom_stl();
@@ -487,13 +487,15 @@ module hexbody_stl() {
 		translate([hexbody_pivot_r, 0, 0]) 
 		rotate([180, 0, 0]) {
 			ds3225_horn_to_flange() {
-				ds3225((r % 120 == 0 ? 1 : -1) * hip_rotation(), show_model=true)
+				ds3225(hip_rotation(), show_model=true)
 					hexhip_design_stl();
 			}
 			servo_cap_stl();
 		}
 	}
 }
+
+hexbody_stl();
 
 module angles_to_xyz(rotation=0, hip_angle=hip_angle, knee_angle=knee_angle, ankle_angle=ankle_angle) {
 	/*
@@ -541,8 +543,12 @@ module angles_to_xyz(rotation=0, hip_angle=hip_angle, knee_angle=knee_angle, ank
     }
     // % translate([leg_x, leg_y, -leg_z])
     // 	sphere(r=1);
+    % xyz_to_angles(rotation, leg_x2, leg_y2, leg_z2);
 }
-angles_to_xyz();
+for (rotation=[0:60:hexbody_limit]) {
+	angles_to_xyz(rotation);	
+}
+
 
 module xyz_to_angles(rotation=0, x, y, z) {
 	dx = x - hexbody_pivot_r * cos(rotation);
@@ -592,8 +598,8 @@ module xyz_to_angles(rotation=0, x, y, z) {
     	dx=dx, dy=dy, dz=dz, dx2=dx2, dy2=dy2, 
     	ankle=ankle, hip_foot_angle=hip_foot_angle);
 
-    translate([hexbody_pivot_r * cos(rotation), 0, 0]) {
-    	rotate([0, 0, hip_angle]) {
+    translate([hexbody_pivot_r * cos(rotation), hexbody_pivot_r * sin(rotation), 0]) {
+    	rotate([0, 0, rotation + hip_angle]) {
     		cube([hexhip_servo_x, 1, 1]);
     		translate([hexhip_servo_x, 0, 0]) {
     			rotate([0, -knee_angle, 0]) {
@@ -657,7 +663,7 @@ module xyz_to_angles(rotation=0, x, y, z) {
 }
 
 // ! xyz_to_angles(0, 338, 0, 0);
-xyz_to_angles(0, 248.198, -26.1313, 146.593);
+// xyz_to_angles(0, 248.198, -26.1313, 146.593);
 
 // hexbody_stl();
 // */

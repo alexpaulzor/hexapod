@@ -84,7 +84,8 @@ void print_leg(t_leg_pos * leg) {
     // angles_to_xyz(leg);
     // xyz_to_angles(leg);
     Serial.println(
-        "x=" + String(leg->x) +
+        "r=" + String(leg->rotation) +
+        ", x=" + String(leg->x) +
         ", y=" + String(leg->y) +
         ", z=" + String(leg->z) +
         ", hip=" + String(leg->hip_angle) +
@@ -125,6 +126,124 @@ void dump_motion_table() {
     delay(10000);
 }
 
+void xyz_to_angles(t_leg_pos * leg) {
+    float dx = leg->x - BODY_PIVOT_R * cos(DEG2RAD * (leg->rotation));
+    float dy = leg->y - BODY_PIVOT_R * sin(DEG2RAD * (leg->rotation));
+    float dz = leg->z - HIP_DZ;
+    float raw_hip = atan(dy / dx) * RAD2DEG - leg->rotation;
+    if (raw_hip < -90)
+        raw_hip += 360;
+    if (raw_hip > 90)
+        raw_hip -= 180;
+    Serial.println("Raw hip_angle=" + String(raw_hip) + "; r=" + String(leg->rotation));
+    leg->hip_angle = constrain(
+        (raw_hip),
+        -HIP_DEFLECTION, HIP_DEFLECTION);
+
+    dx -= HIP_L * cos(DEG2RAD * (leg->rotation + leg->hip_angle));
+    dy -= HIP_L * sin(DEG2RAD * (leg->rotation + leg->hip_angle));
+
+    // Now dx, dy, dz are the component distances from knee pivot to foot tip
+    float leg_foot_ext = sqrt(dx * dx + dy * dy + dz * dz);
+    // leg_foot_ext is linear distance from hip pivot to foot tip (long side of iso triangle with ankle_angle as center)
+    // law of cosines to the rescue
+    float loc_top = LEG_L * LEG_L + FOOT_L * FOOT_L - leg_foot_ext * leg_foot_ext;
+    float loc_bottom = 2 * LEG_L * FOOT_L;
+    float raw_ankle;
+    if (leg_foot_ext > LEG_L + FOOT_L) {
+        // full extension
+        raw_ankle = 180;
+    } else {
+        raw_ankle = acos(loc_top / loc_bottom) * RAD2DEG;
+    }
+
+    float ankle = 180 - raw_ankle - ANKLE_BIAS;
+
+    float hip_foot_angle = asin(dz / leg_foot_ext) * RAD2DEG;
+
+    float raw_knee = hip_foot_angle - 90 + raw_ankle/2.0;
+
+    // log_debug_vals(leg_foot_ext, ankle, hip_foot_angle, raw_ankle, raw_knee);
+
+    leg->ankle_angle = constrain(ankle, -90, 90);
+    leg->knee_angle = constrain(raw_knee, -90, 90);
+    
+}
+
+void angles_to_xyz(t_leg_pos * leg) {
+    leg->x = BODY_PIVOT_R * cos(DEG2RAD * (leg->rotation));
+    leg->y = BODY_PIVOT_R * sin(DEG2RAD * (leg->rotation));
+    leg->z = HIP_DZ;
+
+    float extension_x = (
+        HIP_L + 
+        LEG_L * cos(DEG2RAD * (leg->knee_angle)) +
+        FOOT_L * cos(DEG2RAD * (leg->knee_angle + (leg->ankle_angle + ANKLE_BIAS))));
+
+    float extension_z = (
+        LEG_L * sin(DEG2RAD * (leg->knee_angle)) +
+        FOOT_L * sin(DEG2RAD * (leg->knee_angle + (leg->ankle_angle + ANKLE_BIAS))));
+
+    leg->x += extension_x * cos(DEG2RAD * (leg->rotation + leg->hip_angle));
+    leg->y += extension_x * sin(DEG2RAD * (leg->rotation + leg->hip_angle));
+    leg->z += extension_z;
+}
+
+void walk(t_leg_pos * legs[NUM_LEGS], float direction, float speed, float ride_angle) {
+    /*
+        Use t_leg_pos, angles_to_xyz(), and xyz_to_angles()
+        to orchestrate motion one leg at a time. 
+
+        General idea:
+        * For any legs in the air, move as far as possible _away_ from bearing "direction".
+        * For each leg, compute how far along the floor (x-y) we can move along bearing "direction".
+        * Move all legs as far as possible along bearing "direction" without lifting any legs.
+        * When a leg reaches its end of motion, lift that leg to a neutral lifted position
+        * Return (if still walking, the outer loop will continue the same motion until the next leg needs to move).
+    */
+    float dx = speed * 10 * cos(direction);
+    float dy = speed * 10 * sin(direction);
+    Serial.println("dx=" + String(dx) + "; dy=" + String(dy));
+    // float avg_z = 0;
+    // for (int leg = 0; leg < NUM_LEGS; leg++) {
+    //     angles_to_xyz(legs[leg]);
+    //     // avg_z += legs[leg]->z;
+    //     print_leg(legs[leg]);
+    // }
+    // // avg_z = avg_z / NUM_LEGS;
+
+    for (int leg = 0; leg < NUM_LEGS; leg++) {
+        // detect legs in the air (z < average?)
+        if (legs[leg]->knee_angle <= -89) {
+            // TODO: Find optimal x,y,z for lifted legs to drop
+            legs[leg]->hip_angle = 0;
+            legs[leg]->knee_angle = ride_angle;
+            legs[leg]->ankle_angle = get_ankle_angle(ride_angle);
+            angles_to_xyz(legs[leg]);
+            Serial.println("In air: leg " + String(leg));
+            print_leg(legs[leg]);
+        } else {
+            angles_to_xyz(legs[leg]);
+            legs[leg]->x += dx;
+            legs[leg]->y += dy;
+            xyz_to_angles(legs[leg]);
+            if (!within_rom(legs[leg])) {
+                Serial.println("Exceeded ROM: leg " + String(leg));
+                print_leg(legs[leg]);
+                // Raise leg to be dropped next step
+                legs[leg]->hip_angle = 0;
+                legs[leg]->knee_angle = -90;
+                legs[leg]->ankle_angle = 90;
+            }    
+        }
+        angles_to_xyz(legs[leg]);
+        print_leg(legs[leg]);
+    }
+
+    smooth_move_legs(legs, 1000, 10);
+    // beeps(1);
+    // delay(500);
+}
 
 void setup() {
     Wire.begin();                 // Wire must be started first
@@ -265,7 +384,8 @@ void loop() {
         // TODO: port to use t_leg_pos
         spin(spin_rate, ride_angle);
     } else {
-        stand(leg_ptr, ride_angle);
+        // stand(leg_ptr, ride_angle);
     }
+
 }
 // */

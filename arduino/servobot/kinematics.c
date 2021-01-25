@@ -1,6 +1,6 @@
 #include "servobot.h"
 
-void angles_to_xyz(t_leg_pos * leg) {
+void _angles_to_xyz(t_leg_pos * leg) {
 	leg->x = BODY_PIVOT_R * cos(DEG2RAD * (leg->rotation));
 	leg->y = BODY_PIVOT_R * sin(DEG2RAD * (leg->rotation));
 	leg->z = HIP_DZ;
@@ -19,10 +19,11 @@ void angles_to_xyz(t_leg_pos * leg) {
 	leg->z += extension_z;
 }
 
-void xyz_to_angles(t_leg_pos * leg) {
+void _xyz_to_angles(t_leg_pos * leg) {
 	float dx = leg->x - BODY_PIVOT_R * cos(DEG2RAD * (leg->rotation));
 	float dy = leg->y - BODY_PIVOT_R * sin(DEG2RAD * (leg->rotation));
 	float dz = leg->z - HIP_DZ;
+
 
 	leg->hip_angle = constrain(
         (atan(dy / dx) * RAD2DEG - leg->rotation),
@@ -435,7 +436,7 @@ void init_legs(t_leg_pos * legs[NUM_LEGS]) {
     }
 }
 
-void walk(t_leg_pos * legs[NUM_LEGS], float direction, float speed, float ride_angle) {
+void _walk(t_leg_pos * legs[NUM_LEGS], float direction, float speed, float ride_angle) {
     /*
         Use t_leg_pos, angles_to_xyz(), and xyz_to_angles()
         to orchestrate motion one leg at a time. 
@@ -458,16 +459,16 @@ void walk(t_leg_pos * legs[NUM_LEGS], float direction, float speed, float ride_a
 
     for (int leg = 0; leg < NUM_LEGS; leg++) {
         // detect legs in the air (z < average?)
-        if (!within_rom(legs[leg])) {
+        if (legs[leg]->knee_angle == -90) {
             // TODO: Find optimal x,y,z for lifted legs to drop
             legs[leg]->hip_angle = 0;
             legs[leg]->knee_angle = ride_angle;
             legs[leg]->ankle_angle = get_ankle_angle(ride_angle);
+            angles_to_xyz(legs[leg]);
         }
     }
-    
 
-    for (int leg = 0; leg < 1+0*NUM_LEGS; leg++) {
+    for (int leg = 0; leg < NUM_LEGS; leg++) {
         legs[leg]->x += dx;
         legs[leg]->y += dy;
         xyz_to_angles(legs[leg]);
@@ -475,10 +476,11 @@ void walk(t_leg_pos * legs[NUM_LEGS], float direction, float speed, float ride_a
             // Raise leg to be dropped next step
             legs[leg]->hip_angle = 0;
             legs[leg]->knee_angle = -90;
-            legs[leg]->ankle_angle = -90;
+            legs[leg]->ankle_angle = 90;
             angles_to_xyz(legs[leg]);
+            // print_leg(legs[leg]);
         }
     }
 
-    smooth_move_legs(legs, 2000, 5);
+    smooth_move_legs(legs, 1000, 10);
 }
