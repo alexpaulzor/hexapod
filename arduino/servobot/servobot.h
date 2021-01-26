@@ -1,4 +1,4 @@
-#include "trig.h"
+// #include "trig.h"
 // #include <Wire.h>
 // #include "PCA9685.h"
 
@@ -17,6 +17,7 @@
 #define HIP_DEFLECTION 30
 #define KNEE_DEFLECTION 90
 #define ANKLE_DEFLECTION 90
+#define STEP_SIZE 20
 
 // Servo configuration
 #define MIN_PWM 102
@@ -53,7 +54,8 @@
 #define PPM_CENTER ((PPM_LOW + PPM_HIGH) / 2)
 #define DEADZONE_RATIO 0.05
 #define INTERRUPT_PIN 3
-#define PPM_TIMEOUT_MS 1000
+#define PPM_TIMEOUT_MS 10000
+#define BAUD_RATE 115200
 
 // #define BUZZER_PIN 9
 #define BUZZER_DRIVER 0

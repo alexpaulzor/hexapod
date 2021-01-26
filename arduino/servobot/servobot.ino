@@ -21,23 +21,6 @@ PCA9685_ServoEval pwmServo(MIN_PWM, MAX_PWM); // (-90deg, +90deg)
 t_leg_pos legs[NUM_LEGS];
 t_leg_pos * leg_ptr[NUM_LEGS];
 
-void log_setup() {
-    Serial.begin(115200);
-}
-
-void log(char * msg) {
-    Serial.println(msg);
-}
-
-void log_debug_vals(float leg_foot_ext, float ankle, float hip_foot_angle, float raw_ankle, float raw_knee) {
-    Serial.println(
-        "leg_foot_ext=" + String(leg_foot_ext) +
-        "; ankle=" + String(ankle) +
-        "; hfa=" + String(hip_foot_angle) +
-        "; raw_ankle=" + String(raw_ankle) +
-        "; raw_knee=" + String(raw_knee));
-}
-
 unsigned short pwmForAngle(float angle) {
     return pwmServo.pwmForAngle(angle);
 }
@@ -63,9 +46,12 @@ unsigned short get_current_value(int driver, int channel) {
 
 void beep(long duration_ms) {
     // analogWrite(BUZZER_PIN, 127);
-    set_motor(BUZZER_DRIVER, BUZZER_CHANNEL, pwmForAngle(0));
+    set_motor(
+        BUZZER_DRIVER, BUZZER_CHANNEL, 
+        1024);
     delay(duration_ms);
-    set_motor(BUZZER_DRIVER, BUZZER_CHANNEL, 0);
+    set_motor(
+        BUZZER_DRIVER, BUZZER_CHANNEL, 0);
     // analogWrite(BUZZER_PIN, 0);
 }
 
@@ -77,24 +63,6 @@ void beeps(unsigned short count) {
 }
 
 void print_leg(t_leg_pos * leg) {
-    // leg->hip_angle = hip_angle;
-    // leg->knee_angle = knee_angle;
-    // leg->ankle_angle = ankle_angle;
-    // angles_to_xyz(leg);
-    // xyz_to_angles(leg);
-    // Serial.print(
-        // String(hip_angle) +
-        // "," + String(knee_angle) +
-        // "," + String(ankle_angle) +
-        // "," + 
-    //     String(leg->x) +
-    //     "," + String(leg->y) +
-    //     "," + String(leg->z) +
-    //     "," + String(leg->hip_angle) +
-    //     "," + String(leg->knee_angle) +
-    //     "," + String(leg->ankle_angle));
-    // angles_to_xyz(leg);
-    // xyz_to_angles(leg);
     Serial.println(
         "r=" + String(leg->rotation) +
         ", x=" + String(leg->x) +
@@ -103,39 +71,6 @@ void print_leg(t_leg_pos * leg) {
         ", hip=" + String(leg->hip_angle) +
         ", knee=" + String(leg->knee_angle) +
         ", ankle=" + String(leg->ankle_angle));
-}
-
-void dump_motion_table() {
-    // t_leg_pos legs[NUM_LEGS];
-    // t_leg_pos * leg_ptr[NUM_LEGS];
-    // for (int leg = 0; leg < NUM_LEGS; leg++)
-    //     leg_ptr[leg] = &legs[leg];
-    // init_legs(leg_ptr);
-    int da = 15;
-    // Serial.println("x,y,z,hip,knee,ankle,");
-    for (int hip_angle = - da; hip_angle <= da; hip_angle += da) {
-        for (int knee_angle = -KNEE_DEFLECTION; knee_angle <= KNEE_DEFLECTION; knee_angle += da) {
-            for (int ankle_angle = -ANKLE_DEFLECTION - da; ankle_angle <= ANKLE_DEFLECTION + da; ankle_angle += da) {
-                for (int leg = 0; leg < 1; leg++) {
-                    legs[leg].hip_angle = hip_angle;
-                    legs[leg].knee_angle = knee_angle;
-                    legs[leg].ankle_angle = ankle_angle;
-                    angles_to_xyz(leg_ptr[0]);
-                    print_leg(leg_ptr[leg]);
-                    smooth_move_leg(leg_ptr[leg], 500, 5);
-                    delay(500);
-                    Serial.println("xyz -> a -> xyz");
-                    xyz_to_angles(leg_ptr[0]);
-                    angles_to_xyz(leg_ptr[0]);
-                    print_leg(leg_ptr[0]);
-                    // smooth_move_leg(leg_ptr[0], 500, 5);
-                    // beeps(3);
-                    // delay(500);
-                }
-            }
-        }
-    }
-    delay(10000);
 }
 
 void xyz_to_angles(t_leg_pos * leg) {
@@ -147,7 +82,7 @@ void xyz_to_angles(t_leg_pos * leg) {
         raw_hip += 360;
     if (raw_hip > 90)
         raw_hip -= 180;
-    Serial.println("Raw hip_angle=" + String(raw_hip) + "; r=" + String(leg->rotation));
+    // Serial.println("Raw hip_angle=" + String(raw_hip) + "; r=" + String(leg->rotation));
     leg->hip_angle = constrain(
         (raw_hip),
         -HIP_DEFLECTION, HIP_DEFLECTION);
@@ -207,7 +142,7 @@ int within_rom(t_leg_pos * leg) {
         (-HIP_DEFLECTION < leg->hip_angle && leg->hip_angle < HIP_DEFLECTION) &&
         (-KNEE_DEFLECTION < leg->knee_angle && leg->knee_angle < KNEE_DEFLECTION) &&
         (-ANKLE_DEFLECTION <= leg->ankle_angle && leg->ankle_angle <= ANKLE_DEFLECTION) &&
-        leg->ankle_angle != 0); // != 0 because this means the leg is pointed straight away, not articulated
+        abs(leg->ankle_angle + ANKLE_BIAS) > 1); // != 0 because this means the leg is pointed straight away, not articulated
 }
 
 void set_angle(unsigned short driver, unsigned short channel, float angle) {
@@ -227,11 +162,7 @@ void smooth_move_step(
         long duration_ms, 
         unsigned long interval_ms) {
     
-    unsigned short current_value = get_current_value(driver, channel);  // = DRIVERS[driver].getChannelPWM(channel);
-    // if (driver == 0)
-    //     current_value = driver0.getChannelPWM(channel);
-    // else
-    //     current_value = driver1.getChannelPWM(channel);
+    unsigned short current_value = get_current_value(driver, channel);
     
     unsigned short target_value = pwmForAngle(angle);
     unsigned short next_value;
@@ -249,9 +180,8 @@ void smooth_move_to(
         unsigned short channels[], 
         float angles[], 
         int num_channels,
-        unsigned long duration_ms,
-        unsigned long interval_ms) {
-
+        unsigned long duration_ms) {
+    int interval_ms = 20;
     unsigned long start_time_ms = millis();
     unsigned long last_start_time_ms;
     unsigned long end_time_ms = start_time_ms + duration_ms;
@@ -270,10 +200,9 @@ void smooth_move_to(
         actual_interval_ms = start_time_ms - last_start_time_ms;
     }
 }
-
+/*
 void smooth_move_all(
         float leg_angles[NUM_LEGS][3], long duration_ms, unsigned long interval_ms) {
-    // leg_angles = {{hip0, knee0, ankle0}, ...}
 
     unsigned short drivers[3 * NUM_LEGS];
     unsigned short channels[3 * NUM_LEGS];
@@ -289,9 +218,9 @@ void smooth_move_all(
     smooth_move_to(
         drivers, channels, angles, 3 * NUM_LEGS,
         duration_ms, interval_ms);
-}
+}*/
 
-void smooth_move_legs(t_leg_pos * legs[NUM_LEGS], long duration_ms, unsigned long interval_ms) {
+void smooth_move_legs(t_leg_pos * legs[NUM_LEGS], long duration_ms) {
     unsigned short drivers[3 * NUM_LEGS];
     unsigned short channels[3 * NUM_LEGS];
     float angles[3 * NUM_LEGS];
@@ -308,10 +237,10 @@ void smooth_move_legs(t_leg_pos * legs[NUM_LEGS], long duration_ms, unsigned lon
     }
     smooth_move_to(
         drivers, channels, angles, 3 * NUM_LEGS,
-        duration_ms, interval_ms);
+        duration_ms);
 }
 
-void smooth_move_leg(t_leg_pos * leg, long duration_ms, unsigned long interval_ms) {
+void smooth_move_leg(t_leg_pos * leg, long duration_ms) {
     unsigned short drivers[3];
     unsigned short channels[3];
     float angles[3];
@@ -328,23 +257,23 @@ void smooth_move_leg(t_leg_pos * leg, long duration_ms, unsigned long interval_m
     
     smooth_move_to(
         drivers, channels, angles, 3,
-        duration_ms, interval_ms);
+        duration_ms);
 }
 
-void smooth_move_sequence(float leg_angles[][NUM_LEGS][3], int num_moves, long duration_ms, unsigned long interval_ms) {
-    for (int i = 0; i < num_moves; i++) {
-        smooth_move_all(leg_angles[i], duration_ms, interval_ms);
-    }
-}
+// void smooth_move_sequence(float leg_angles[][NUM_LEGS][3], int num_moves, long duration_ms, unsigned long interval_ms) {
+//     for (int i = 0; i < num_moves; i++) {
+//         smooth_move_all(leg_angles[i], duration_ms, interval_ms);
+//     }
+// }
 
 float get_ankle_angle(float knee_angle) {
     if (knee_angle > 0) 
-        return map(knee_angle, 0, 90, 90, -45);
+        return mapf(knee_angle, 0, 90, 90, -45);
     return 90;
 }
 
 float get_step_duration_ms(float speed) {
-    return map(abs(speed), 0, 1, 1000, 200);
+    return mapf(abs(speed), 0, 1, 1000, 200);
 }
 
 void stand(t_leg_pos * legs[NUM_LEGS], float ride_angle) {
@@ -367,7 +296,7 @@ void stand(t_leg_pos * legs[NUM_LEGS], float ride_angle) {
         legs[leg]->ankle_angle = get_ankle_angle(ride_angle);
         angles_to_xyz(legs[0]);
     }
-    smooth_move_legs(legs, get_step_duration_ms(1.0), 5);
+    smooth_move_legs(legs, get_step_duration_ms(1.0));
 }
 
 void retract(t_leg_pos * legs[NUM_LEGS]) {
@@ -377,71 +306,126 @@ void retract(t_leg_pos * legs[NUM_LEGS]) {
         legs[leg]->ankle_angle = 90;
         angles_to_xyz(legs[0]);
     }
-    smooth_move_legs(legs, get_step_duration_ms(1.0), 5);
+    smooth_move_legs(legs, get_step_duration_ms(1.0));
 }
 
-void spin(float spin_rate, float ride_angle) {
-    // spin_rate [-1, 1] (-1 = CCW, 1 = CW)
+void spin(t_leg_pos * legs[NUM_LEGS], float spin_rate, float ride_angle) {
     float hip_angle = -abs(spin_rate)/spin_rate * HIP_DEFLECTION;
-
     float ankle_angle = get_ankle_angle(ride_angle);
-
-    float leg_angles[][NUM_LEGS][3] = {
-        {  // lift leg group 0
-            {0, -90, ankle_angle}, 
-            {0, ride_angle, ankle_angle}, 
-            {0, -90, ankle_angle}, 
-            {0, ride_angle, ankle_angle}, 
-            {0, -90, ankle_angle}, 
-            {0, ride_angle, ankle_angle}},
-        {  // move unlifted group 1 forward, lifted leg group 0 backward
-            {-hip_angle, -90, ankle_angle}, 
-            {hip_angle, ride_angle, ankle_angle}, 
-            {-hip_angle, -90, ankle_angle}, 
-            {hip_angle, ride_angle, ankle_angle}, 
-            {-hip_angle, -90, ankle_angle}, 
-            {hip_angle, ride_angle, ankle_angle}},
-        {  // unlift leg group 0
-            {-hip_angle, ride_angle, ankle_angle}, 
-            {hip_angle, ride_angle, ankle_angle}, 
-            {-hip_angle, ride_angle, ankle_angle}, 
-            {hip_angle, ride_angle, ankle_angle}, 
-            {-hip_angle, ride_angle, ankle_angle}, 
-            {hip_angle, ride_angle, ankle_angle}},
-        {  // lift leg group 1
-            {-hip_angle, ride_angle, ankle_angle}, 
-            {hip_angle, -90, ankle_angle}, 
-            {-hip_angle, ride_angle, ankle_angle}, 
-            {hip_angle, -90, ankle_angle}, 
-            {-hip_angle, ride_angle, ankle_angle}, 
-            {hip_angle, -90, ankle_angle}},
-        {  // move unlifted group 0 forward, lifted leg group 1 backward
-            {hip_angle, ride_angle, ankle_angle}, 
-            {-hip_angle, -90, ankle_angle}, 
-            {hip_angle, ride_angle, ankle_angle}, 
-            {-hip_angle, -90, ankle_angle}, 
-            {hip_angle, ride_angle, ankle_angle},
-            {-hip_angle, -90, ankle_angle}}, 
-        {  // drop leg group 1
-            {hip_angle, ride_angle, ankle_angle}, 
-            {-hip_angle, ride_angle, ankle_angle}, 
-            {hip_angle, ride_angle, ankle_angle}, 
-            {-hip_angle, ride_angle, ankle_angle}, 
-            {hip_angle, ride_angle, ankle_angle},
-            {-hip_angle, ride_angle, ankle_angle}}, 
-        {  // lift leg group 0
-            {hip_angle, -90, ankle_angle}, 
-            {-hip_angle, ride_angle, ankle_angle}, 
-            {hip_angle, -90, ankle_angle}, 
-            {-hip_angle, ride_angle, ankle_angle}, 
-            {hip_angle, -90, ankle_angle},
-            {-hip_angle, ride_angle, ankle_angle}}, 
-    };
-    smooth_move_sequence(
-        leg_angles, 
-        sizeof(leg_angles)/sizeof(leg_angles[0]),
-        get_step_duration_ms(spin_rate), 5);
+    for (int leg_group = 0; leg_group < 2; leg_group++) {
+        for (int step = 0; step < 5; step++) {
+            for (int leg = 0; leg < NUM_LEGS; leg++) {
+                if (leg % 2 == leg_group) {
+                    switch (step) {
+                        case 0:  // lift leg and swing opposite turn direction
+                            legs[leg]->knee_angle = -90;
+                            legs[leg]->hip_angle = -hip_angle;
+                            break;
+                        case 1:  // drop leg
+                            legs[leg]->knee_angle = ride_angle;
+                            break;
+                        case 2:  // turn through
+                            legs[leg]->hip_angle = hip_angle;
+                            break;
+                        case 3:  // wait for other legs to drop
+                            break;
+                        case 4:  // lift leg and center
+                            legs[leg]->knee_angle = -90;
+                            legs[leg]->hip_angle = 0;
+                            break;
+                        default:
+                            break;
+                    }
+                } else {
+                    switch (step) {
+                        case 0:  // turn half
+                            legs[leg]->knee_angle = ride_angle;
+                            legs[leg]->hip_angle = hip_angle;
+                            break;
+                        case 1:  // wait for other legs to dop
+                            break;
+                        case 2:  // lift leg and swing opposite
+                            legs[leg]->knee_angle = -90;
+                            legs[leg]->hip_angle = -hip_angle;
+                            break;
+                        case 3:  // drop leg
+                            legs[leg]->knee_angle = ride_angle;
+                            break;
+                        case 4: // turn half
+                            legs[leg]->hip_angle = 0;
+                            break;
+                        default:
+                            break;
+                    }
+                }
+            }
+            smooth_move_legs(legs, get_step_duration_ms(spin_rate));
+        }
+    }
 }
+
+// void spin(float spin_rate, float ride_angle) {
+//     // spin_rate [-1, 1] (-1 = CCW, 1 = CW)
+//     float hip_angle = -abs(spin_rate)/spin_rate * HIP_DEFLECTION;
+
+//     float ankle_angle = get_ankle_angle(ride_angle);
+
+//     float leg_angles[][NUM_LEGS][3] = {
+//         {  // lift leg group 0
+//             {0, -90, ankle_angle}, 
+//             {0, ride_angle, ankle_angle}, 
+//             {0, -90, ankle_angle}, 
+//             {0, ride_angle, ankle_angle}, 
+//             {0, -90, ankle_angle}, 
+//             {0, ride_angle, ankle_angle}},
+//         {  // move unlifted group 1 forward, lifted leg group 0 backward
+//             {-hip_angle, -90, ankle_angle}, 
+//             {hip_angle, ride_angle, ankle_angle}, 
+//             {-hip_angle, -90, ankle_angle}, 
+//             {hip_angle, ride_angle, ankle_angle}, 
+//             {-hip_angle, -90, ankle_angle}, 
+//             {hip_angle, ride_angle, ankle_angle}},
+//         {  // unlift leg group 0
+//             {-hip_angle, ride_angle, ankle_angle}, 
+//             {hip_angle, ride_angle, ankle_angle}, 
+//             {-hip_angle, ride_angle, ankle_angle}, 
+//             {hip_angle, ride_angle, ankle_angle}, 
+//             {-hip_angle, ride_angle, ankle_angle}, 
+//             {hip_angle, ride_angle, ankle_angle}},
+//         {  // lift leg group 1
+//             {-hip_angle, ride_angle, ankle_angle}, 
+//             {hip_angle, -90, ankle_angle}, 
+//             {-hip_angle, ride_angle, ankle_angle}, 
+//             {hip_angle, -90, ankle_angle}, 
+//             {-hip_angle, ride_angle, ankle_angle}, 
+//             {hip_angle, -90, ankle_angle}},
+//         {  // move unlifted group 0 forward, lifted leg group 1 backward
+//             {hip_angle, ride_angle, ankle_angle}, 
+//             {-hip_angle, -90, ankle_angle}, 
+//             {hip_angle, ride_angle, ankle_angle}, 
+//             {-hip_angle, -90, ankle_angle}, 
+//             {hip_angle, ride_angle, ankle_angle},
+//             {-hip_angle, -90, ankle_angle}}, 
+//         {  // drop leg group 1
+//             {hip_angle, ride_angle, ankle_angle}, 
+//             {-hip_angle, ride_angle, ankle_angle}, 
+//             {hip_angle, ride_angle, ankle_angle}, 
+//             {-hip_angle, ride_angle, ankle_angle}, 
+//             {hip_angle, ride_angle, ankle_angle},
+//             {-hip_angle, ride_angle, ankle_angle}}, 
+//         {  // lift leg group 0
+//             {hip_angle, -90, ankle_angle}, 
+//             {-hip_angle, ride_angle, ankle_angle}, 
+//             {hip_angle, -90, ankle_angle}, 
+//             {-hip_angle, ride_angle, ankle_angle}, 
+//             {hip_angle, -90, ankle_angle},
+//             {-hip_angle, ride_angle, ankle_angle}}, 
+//     };
+//     smooth_move_sequence(
+//         leg_angles, 
+//         sizeof(leg_angles)/sizeof(leg_angles[0]),
+//         get_step_duration_ms(spin_rate), 5);
+// }
 
 void init_legs(t_leg_pos * legs[NUM_LEGS]) {
     for (unsigned short leg = 0; leg < NUM_LEGS; leg++) {
@@ -461,8 +445,9 @@ void init_legs(t_leg_pos * legs[NUM_LEGS]) {
     }
 }
 
+int last_leg = 0;
 
-void walk(t_leg_pos * legs[NUM_LEGS], float direction, float speed, float ride_angle) {
+void walk(t_leg_pos * legs[NUM_LEGS], float dx, float dy, float speed, float ride_angle) {
     /*
         Use t_leg_pos, angles_to_xyz(), and xyz_to_angles()
         to orchestrate motion one leg at a time. 
@@ -474,11 +459,13 @@ void walk(t_leg_pos * legs[NUM_LEGS], float direction, float speed, float ride_a
         * When a leg reaches its end of motion, lift that leg to a neutral lifted position
         * Return (if still walking, the outer loop will continue the same motion until the next leg needs to move).
     */
-    float dx = speed * 10 * cos(direction);
-    float dy = speed * 10 * sin(direction);
-    Serial.println("dx=" + String(dx) + "; dy=" + String(dy));
-
-    for (int leg = 0; leg < NUM_LEGS; leg++) {
+    dx *= speed * STEP_SIZE;
+    dy *= speed * STEP_SIZE;
+    int rom_exceeded = 0;
+    int leg = 0;
+    int ref_leg = last_leg + 1;
+    for (int dleg = 0; dleg < NUM_LEGS; dleg++) {
+        leg = (ref_leg + dleg) % NUM_LEGS;
         // detect legs in the air (z < average?)
         if (legs[leg]->knee_angle <= -89) {
             // TODO: Find optimal x,y,z for lifted legs to drop
@@ -486,27 +473,38 @@ void walk(t_leg_pos * legs[NUM_LEGS], float direction, float speed, float ride_a
             legs[leg]->knee_angle = ride_angle;
             legs[leg]->ankle_angle = get_ankle_angle(ride_angle);
             angles_to_xyz(legs[leg]);
-            Serial.println("In air: leg " + String(leg));
-            print_leg(legs[leg]);
-        } else {
+            // legs_in_air++;
+            // Serial.println("In air: leg " + String(leg));
+            // print_leg(legs[leg]);
+        }
+    } 
+    smooth_move_legs(legs, 350);
+    for (int dleg = 0; dleg < NUM_LEGS; dleg++) {
+        leg = (ref_leg + dleg) % NUM_LEGS;
+        if (rom_exceeded == 0 || leg % 2 != last_leg % 2) {
             angles_to_xyz(legs[leg]);
             legs[leg]->x += dx;
             legs[leg]->y += dy;
             xyz_to_angles(legs[leg]);
-            if (!within_rom(legs[leg])) {
+            if (!within_rom(legs[leg]) && rom_exceeded == 0) {
                 Serial.println("Exceeded ROM: leg " + String(leg));
-                print_leg(legs[leg]);
-                // Raise leg to be dropped next step
-                legs[leg]->hip_angle = 0;
-                legs[leg]->knee_angle = -90;
-                legs[leg]->ankle_angle = 90;
-            }    
-        }
-        angles_to_xyz(legs[leg]);
-        print_leg(legs[leg]);
+                // print_leg(legs[leg]);
+            
+                for (int leg2 = leg; leg2 < leg + NUM_LEGS; leg2 += 2) {
+                    // Raise leg group to be dropped next step
+                    legs[leg2 % NUM_LEGS]->hip_angle = 0;
+                    legs[leg2 % NUM_LEGS]->knee_angle = -90;
+                    legs[leg2 % NUM_LEGS]->ankle_angle = 90;
+                    angles_to_xyz(legs[leg2 % NUM_LEGS]);
+                }
+                last_leg = leg;
+                rom_exceeded++;
+            }
+        }  
+        print_leg(legs[leg]);  
     }
 
-    smooth_move_legs(legs, 1000, 10);
+    smooth_move_legs(legs, 350);
 }
 
 void setup() {
@@ -520,13 +518,17 @@ void setup() {
     driver0.setPWMFrequency(50);   // Set frequency to 50Hz
     driver1.setPWMFrequency(50);   // Set frequency to 50Hz
     pinMode(PCA_ENABLE_PIN, OUTPUT);
-    log_setup();
+    
+    Serial.begin(BAUD_RATE);
+
     for (int leg = 0; leg < NUM_LEGS; leg++)
         leg_ptr[leg] = &legs[leg];
     init_legs(leg_ptr);
     digitalWrite(PCA_ENABLE_PIN, LOW);
+    delay(500);
     retract(leg_ptr);
     beeps(3);
+    delay(500);
     digitalWrite(PCA_ENABLE_PIN, HIGH);
 }
 
@@ -534,20 +536,20 @@ void loop() {
     unsigned long loop_start = millis();
     int channel_values[NUM_CHANNELS];
     // Print latest valid values from all channels
-    for (int channel = 1; channel <= NUM_CHANNELS; ++channel) {
+    for (int channel = 0; channel < NUM_CHANNELS; channel++) {
         int value = constrain(
-            ppm.latestValidChannelValue(channel, 0),
+            ppm.latestValidChannelValue(channel + 1, 0),
             PPM_LOW, PPM_HIGH);
         // Serial.print(String(value) + " ");
         if (value >= PPM_LOW && value <= PPM_HIGH) {
-            if (value != channel_values[channel - 1]) {
+            if (value != channel_values[channel]) {
                 last_ppm_signal = loop_start;
             }
-            channel_values[channel - 1] = value;
+            channel_values[channel] = value;
         }
     }
     
-    float ride_angle = map(
+    float ride_angle = mapf(
         channel_values[CHANNEL_RIDE_HEIGHT],
         PPM_LOW, PPM_HIGH, -45, 90);
     float spin_rate = mapf(
@@ -557,24 +559,16 @@ void loop() {
     float fb = mapf(channel_values[CHANNEL_FB], PPM_LOW, PPM_HIGH, -1.0, 1.0);
     float lr = mapf(channel_values[CHANNEL_LR], PPM_LOW, PPM_HIGH, -1.0, 1.0);
     float walk_speed = sqrt(fb * fb + lr * lr);
-    float direction = atan(fb / lr);
-    // Serial.print("ride_angle: " + String(ride_angle));
-    // Serial.print("; spin_rate: " + String(spin_rate));
-    // Serial.print("; fb: " + String(fb));
-    // Serial.print("; lr: " + String(lr));
-    // Serial.print("; walk_speed: " + String(walk_speed));
-    // Serial.print("; direction: " + String(direction));
-    // Serial.println();
-    if ((loop_start - last_ppm_signal) > PPM_TIMEOUT_MS) {
-        // command loss
-        Serial.println("command loss");
-        channel_values[CHANNEL_ENABLE_DRIVE] = PPM_LOW;
-        retract(leg_ptr);
-        if ((loop_start - last_ppm_signal) > PPM_TIMEOUT_MS * 10) {
-            last_ppm_signal = loop_start;
-            beep(20);
-        }
-    }
+    // if ((loop_start - last_ppm_signal) > PPM_TIMEOUT_MS) {
+    //     // command loss
+    //     Serial.println("command loss");
+    //     channel_values[CHANNEL_ENABLE_DRIVE] = PPM_LOW;
+    //     retract(leg_ptr);
+    //     if ((loop_start - last_ppm_signal) > PPM_TIMEOUT_MS * 10) {
+    //         last_ppm_signal = loop_start;
+    //         beep(20);
+    //     }
+    // }
     if (channel_values[CHANNEL_ENABLE_DRIVE] < PPM_CENTER) {
         // Drive disabled
         digitalWrite(PCA_ENABLE_PIN, HIGH);
@@ -584,13 +578,12 @@ void loop() {
     }
     digitalWrite(PCA_ENABLE_PIN, LOW);
     if (abs(fb) > DEADZONE_RATIO || abs(lr) > DEADZONE_RATIO) {
-        walk(leg_ptr, direction, walk_speed, ride_angle);
+        walk(leg_ptr, lr, fb, walk_speed, ride_angle);
     } else if (abs(spin_rate) > DEADZONE_RATIO) {
         // Spin in place
-        // TODO: port to use t_leg_pos
-        spin(spin_rate, ride_angle);
+        spin(leg_ptr, spin_rate, ride_angle);
     } else {
-        // stand(leg_ptr, ride_angle);
+        stand(leg_ptr, ride_angle);
     }
 
 }
