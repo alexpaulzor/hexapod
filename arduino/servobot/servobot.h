@@ -17,7 +17,8 @@
 #define HIP_DEFLECTION 30
 #define KNEE_DEFLECTION 90
 #define ANKLE_DEFLECTION 90
-#define STEP_SIZE 20
+#define STEP_SIZE 50
+#define INTERVAL_MS 5
 
 // Servo configuration
 #define MIN_PWM 102
@@ -57,9 +58,10 @@
 #define PPM_TIMEOUT_MS 10000
 #define BAUD_RATE 115200
 
-// #define BUZZER_PIN 9
-#define BUZZER_DRIVER 0
-#define BUZZER_CHANNEL 15
+#define BUZZER_PIN 11
+#define LED_PIN 13
+// #define BUZZER_DRIVER 0
+// #define BUZZER_CHANNEL 15
 
 #define PCA_ENABLE_PIN A3
 
