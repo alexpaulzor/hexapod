@@ -20,7 +20,9 @@ PCA9685_ServoEval pwmServo(MIN_PWM, MAX_PWM); // (-90deg, +90deg)
 
 t_leg_pos legs[NUM_LEGS];
 t_leg_pos * leg_ptr[NUM_LEGS];
-int last_leg = 0;
+char last_leg = 0;  // last leg to be lifted
+char walk_mode = 0;  // 0 = walk as group, 1 = single leg, 2 = articulate leg
+
 
 unsigned short pwmForAngle(float angle) {
     return pwmServo.pwmForAngle(angle);
@@ -246,13 +248,9 @@ void smooth_move_leg(t_leg_pos * leg, long duration_ms) {
 }
 
 float get_ankle_angle(float knee_angle) {
-    if (knee_angle > -22.5) 
-        return mapf(knee_angle, -22.5, 90, 90, -45);
-    return 90;
-}
-
-float get_step_duration_ms(float speed) {
-    return mapf(abs(speed), 0, 1, 1000, 200);
+    if (knee_angle > ANKLE_ACTIVE_ANGLE) 
+        return mapf(knee_angle, ANKLE_ACTIVE_ANGLE, KNEE_DEFLECTION, MAX_RIDE_ANGLE, MIN_RIDE_ANGLE);
+    return KNEE_DEFLECTION;
 }
 
 void stand(t_leg_pos * legs[NUM_LEGS], float ride_angle) {
@@ -275,7 +273,7 @@ void stand(t_leg_pos * legs[NUM_LEGS], float ride_angle) {
         legs[leg]->ankle_angle = get_ankle_angle(ride_angle);
         angles_to_xyz(legs[0]);
     }
-    smooth_move_legs(legs, get_step_duration_ms(1.0));
+    smooth_move_legs(legs, STEP_DURATION);
 }
 
 void retract(t_leg_pos * legs[NUM_LEGS]) {
@@ -285,13 +283,15 @@ void retract(t_leg_pos * legs[NUM_LEGS]) {
         legs[leg]->ankle_angle = 90;
         angles_to_xyz(legs[0]);
     }
-    smooth_move_legs(legs, get_step_duration_ms(1.0));
+    smooth_move_legs(legs, STEP_DURATION);
 }
 
 void spin(t_leg_pos * legs[NUM_LEGS], float spin_rate, float ride_angle) {
-    float hip_angle = -abs(spin_rate)/spin_rate * HIP_DEFLECTION;
+    // TODO: rewrite like walk()
+    float hip_angle = -spin_rate * HIP_DEFLECTION;
     float ankle_angle = get_ankle_angle(ride_angle);
     int leg_group = last_leg % 2;
+    // TODO: respect walk_mode
     for (int step = 0; step < 6; step++) {
         for (int leg = 0; leg < NUM_LEGS; leg++) {
             if (leg % 2 == leg_group) {
@@ -299,21 +299,26 @@ void spin(t_leg_pos * legs[NUM_LEGS], float spin_rate, float ride_angle) {
                     case 0:  // lift leg and swing opposite turn direction
                         legs[leg]->knee_angle = -90;
                         legs[leg]->hip_angle = -hip_angle;
+                        legs[leg]->ankle_angle = 90;
                         break;
                     case 1:  // drop leg
                         legs[leg]->knee_angle = ride_angle;
+                        legs[leg]->ankle_angle = ankle_angle;
                         break;
-                    case 2:  // turn through
+                    case 2:  // turn halfway
+                        legs[leg]->hip_angle = 0;
+                        break;
+                    case 3:  // wait for other legs to drop, finish turn
                         legs[leg]->hip_angle = hip_angle;
-                        break;
-                    case 3:  // wait for other legs to drop
                         break;
                     case 4:  // lift leg and center
                         legs[leg]->knee_angle = -90;
                         legs[leg]->hip_angle = 0;
+                        legs[leg]->ankle_angle = 90;
                         break;
                     case 5: // drop leg
                         legs[leg]->knee_angle = ride_angle;
+                        legs[leg]->ankle_angle = ankle_angle;
                         break;
                     default:
                         break;
@@ -322,16 +327,19 @@ void spin(t_leg_pos * legs[NUM_LEGS], float spin_rate, float ride_angle) {
                 switch (step) {
                     case 0:  // turn half
                         legs[leg]->knee_angle = ride_angle;
+                        legs[leg]->ankle_angle = ankle_angle;
                         legs[leg]->hip_angle = hip_angle;
                         break;
                     case 1:  // wait for other legs to dop
                         break;
                     case 2:  // lift leg and swing opposite
                         legs[leg]->knee_angle = -90;
+                        legs[leg]->ankle_angle = 90;
                         legs[leg]->hip_angle = -hip_angle;
                         break;
                     case 3:  // drop leg
                         legs[leg]->knee_angle = ride_angle;
+                        legs[leg]->ankle_angle = ankle_angle;
                         break;
                     case 4: // turn half
                         legs[leg]->hip_angle = 0;
@@ -343,7 +351,7 @@ void spin(t_leg_pos * legs[NUM_LEGS], float spin_rate, float ride_angle) {
                 }
             }
         }
-        smooth_move_legs(legs, get_step_duration_ms(spin_rate));
+        smooth_move_legs(legs, STEP_DURATION);
     }
 }
 
@@ -353,19 +361,13 @@ void init_legs(t_leg_pos * legs[NUM_LEGS]) {
         legs[leg]->driver = leg / (NUM_LEGS / 2);
         legs[leg]->channel = (3 * leg) % (3 * NUM_LEGS / 2);
         legs[leg]->hip_angle = 0;
-        // get_current_value(
-        //     legs[leg]->driver, legs[leg]->channel);
         legs[leg]->knee_angle = -90;
-        // get_current_value(
-        //     legs[leg]->driver, legs[leg]->channel + 1);
         legs[leg]->ankle_angle = 90;
-        // get_current_value(
-        //     legs[leg]->driver, legs[leg]->channel + 2);
         angles_to_xyz(legs[leg]);
     }
 }
 
-void walk(t_leg_pos * legs[NUM_LEGS], float dx, float dy, float speed, float ride_angle) {
+void walk(t_leg_pos * legs[NUM_LEGS], float dx, float dy, float ride_angle) {
     /*
         Use t_leg_pos, angles_to_xyz(), and xyz_to_angles()
         to orchestrate motion one leg at a time. 
@@ -377,6 +379,7 @@ void walk(t_leg_pos * legs[NUM_LEGS], float dx, float dy, float speed, float rid
         * When a leg reaches its end of motion, lift that leg to a neutral lifted position
         * Return (if still walking, the outer loop will continue the same motion until the next leg needs to move).
     */
+    // TODO: support single leg at a time motion
     dx *= STEP_SIZE;
     dy *= STEP_SIZE;
     int rom_exceeded = 0;
@@ -384,45 +387,55 @@ void walk(t_leg_pos * legs[NUM_LEGS], float dx, float dy, float speed, float rid
     int ref_leg = last_leg + 1;
     for (int dleg = 0; dleg < NUM_LEGS; dleg++) {
         leg = (ref_leg + dleg) % NUM_LEGS;
-        // detect legs in the air (z < average?)
-        if (legs[leg]->knee_angle <= -89) {
-            // TODO: Find optimal x,y,z for lifted legs to drop
-            // legs[leg]->hip_angle = 0;
+        
+        if (legs[leg]->knee_angle < ride_angle) {
             legs[leg]->knee_angle = ride_angle;
             legs[leg]->ankle_angle = get_ankle_angle(ride_angle);
-            angles_to_xyz(legs[leg]);
-            // legs_in_air++;
-            // Serial.println("In air: leg " + String(leg));
-            // print_leg(legs[leg]);
+            // angles_to_xyz(legs[leg]);
         }
     } 
-    smooth_move_legs(legs, 350);
+    smooth_move_legs(legs, STEP_DURATION);
     for (int dleg = 0; dleg < NUM_LEGS; dleg++) {
         leg = (ref_leg + dleg) % NUM_LEGS;
-        if (rom_exceeded == 0 || leg % 2 != last_leg % 2) {
+        if (rom_exceeded == 0 || leg % 2 != last_leg % 2 || walk_mode == STEP_MODE_SINGLE) {
             angles_to_xyz(legs[leg]);
             legs[leg]->x += dx;
             legs[leg]->y += dy;
             xyz_to_angles(legs[leg]);
             if (!within_rom(legs[leg]) && rom_exceeded == 0) {
-                // Serial.println("Exceeded ROM: leg " + String(leg));
-                // print_leg(legs[leg]);
-            
-                for (int leg2 = leg; leg2 < leg + NUM_LEGS; leg2 += 2) {
+                
+                for (int leg2 = leg; leg2 < leg + (walk_mode == STEP_MODE_GROUP ? NUM_LEGS : 1); leg2 += 2) {
                     // Raise leg group to be dropped next step
-                    legs[leg2 % NUM_LEGS]->hip_angle = -legs[leg2 % NUM_LEGS]->hip_angle/2;
+                    if (abs(legs[leg2 % NUM_LEGS]->hip_angle) >= HIP_DEFLECTION) {
+                        legs[leg2 % NUM_LEGS]->hip_angle = legs[leg2 % NUM_LEGS]->hip_angle * HIP_INVERT_RATIO;
+                    }
                     legs[leg2 % NUM_LEGS]->knee_angle = -90;
-                    // legs[leg2 % NUM_LEGS]->ankle_angle = 90;
+                    legs[leg2 % NUM_LEGS]->ankle_angle = 90;
                     angles_to_xyz(legs[leg2 % NUM_LEGS]);
                 }
                 last_leg = leg;
                 rom_exceeded++;
             }
         }  
-        // print_leg(legs[leg]);  
     }
 
-    smooth_move_legs(legs, 300);
+    smooth_move_legs(legs, STEP_DURATION);
+}
+
+void articulate_leg(t_leg_pos * legs[NUM_LEGS], float lr, float fb, float ride_angle) {
+    // legs[last_leg]->hip_angle = mapf(lr, -1, 1, HIP_DEFLECTION, -HIP_DEFLECTION);
+    // legs[last_leg]->knee_angle = mapf(ride_angle, MIN_RIDE_ANGLE, MAX_RIDE_ANGLE, -KNEE_DEFLECTION, KNEE_DEFLECTION);
+    // legs[last_leg]->ankle_angle = mapf(fb, -1, 1, -ANKLE_DEFLECTION, ANKLE_DEFLECTION);
+    legs[last_leg]->hip_angle += mapf(lr, -1, 1, HIP_DEFLECTION/2, -HIP_DEFLECTION/2);
+    legs[last_leg]->knee_angle += mapf(ride_angle, MIN_RIDE_ANGLE, MAX_RIDE_ANGLE, -KNEE_DEFLECTION/2, KNEE_DEFLECTION/2);
+    legs[last_leg]->ankle_angle += mapf(fb, -1, 1, -ANKLE_DEFLECTION/2, ANKLE_DEFLECTION/2);
+    angles_to_xyz(legs[last_leg]);
+    // legs[last_leg]->y += mapf(lr, -1, 1, -STEP_SIZE/2, STEP_SIZE/2);
+    // legs[last_leg]->z += mapf(ride_angle, MIN_RIDE_ANGLE, MAX_RIDE_ANGLE, -STEP_SIZE/2, STEP_SIZE/2);
+    // legs[last_leg]->x += mapf(fb, -1, 1, -STEP_SIZE/2, STEP_SIZE/2);
+    xyz_to_angles(legs[last_leg]);
+
+    smooth_move_leg(legs[last_leg], STEP_DURATION);
 }
 
 void setup() {
@@ -447,11 +460,11 @@ void setup() {
     retract(leg_ptr);
     beeps(3);
     delay(500);
-    digitalWrite(PCA_ENABLE_PIN, HIGH);
+    // digitalWrite(PCA_ENABLE_PIN, HIGH);
 }
 
 void loop() {
-    unsigned long loop_start = millis();
+    // unsigned long loop_start = millis();
     int channel_values[NUM_CHANNELS];
     // Print latest valid values from all channels
     for (int channel = 0; channel < NUM_CHANNELS; channel++) {
@@ -460,42 +473,43 @@ void loop() {
             PPM_LOW, PPM_HIGH);
         // Serial.print(String(value) + " ");
         if (value >= PPM_LOW && value <= PPM_HIGH) {
-            if (value != channel_values[channel]) {
-                last_ppm_signal = loop_start;
-            }
+            // if (value != channel_values[channel]) {
+            //     last_ppm_signal = loop_start;
+            // }
             channel_values[channel] = value;
         }
     }
     
+
+    walk_mode = constrain(
+        map(channel_values[CHANNEL_STEP_MODE], PPM_LOW, PPM_HIGH, 0, 3),
+        0, 2);
+    Serial.println("walk_mode: " + String(walk_mode));
     float ride_angle = mapf(
         channel_values[CHANNEL_RIDE_HEIGHT],
-        PPM_LOW, PPM_HIGH, -45, 90);
+        PPM_LOW, PPM_HIGH, MIN_RIDE_ANGLE, MAX_RIDE_ANGLE);
     float spin_rate = mapf(
             channel_values[CHANNEL_TURN], 
             PPM_LOW, PPM_HIGH, 
             -1.0, 1.0);
     float fb = mapf(channel_values[CHANNEL_FB], PPM_LOW, PPM_HIGH, -1.0, 1.0);
     float lr = mapf(channel_values[CHANNEL_LR], PPM_LOW, PPM_HIGH, -1.0, 1.0);
-    float walk_speed = sqrt(fb * fb + lr * lr);
-    // if ((loop_start - last_ppm_signal) > PPM_TIMEOUT_MS) {
-    //     // command loss
-    //     Serial.println("command loss");
-    //     channel_values[CHANNEL_ENABLE_DRIVE] = PPM_LOW;
-    //     retract(leg_ptr);
-    //     if ((loop_start - last_ppm_signal) > PPM_TIMEOUT_MS * 10) {
-    //         last_ppm_signal = loop_start;
-    //         beep(20);
-    //     }
-    // }
+    // TODO: command loss timeout
+
     if (channel_values[CHANNEL_ENABLE_DRIVE] < PPM_CENTER) {
         // Drive disabled
-        digitalWrite(PCA_ENABLE_PIN, HIGH);
+        // digitalWrite(PCA_ENABLE_PIN, HIGH);
         delay(250);
         return;
     }
-    digitalWrite(PCA_ENABLE_PIN, LOW);
-    if (abs(fb) > DEADZONE_RATIO || abs(lr) > DEADZONE_RATIO) {
-        walk(leg_ptr, lr, fb, walk_speed, ride_angle);
+    // digitalWrite(PCA_ENABLE_PIN, LOW);
+    if (walk_mode == STEP_MODE_INDIV) {
+        last_leg = constrain(
+            map(channel_values[CHANNEL_LEG_SELECT], PPM_LOW, PPM_HIGH, 0, 6), 
+            0, 5);
+        articulate_leg(leg_ptr, lr, fb, ride_angle);
+    } else if (abs(fb) > DEADZONE_RATIO || abs(lr) > DEADZONE_RATIO) {
+        walk(leg_ptr, lr, fb, ride_angle);
     } else if (abs(spin_rate) > DEADZONE_RATIO) {
         // Spin in place
         spin(leg_ptr, spin_rate, ride_angle);

@@ -19,10 +19,10 @@ ds3225_horn_hole_x = [0, 9, 20, 24];
 
 ds3225_horn_dz = 1.5;
 
-module ds3225_horn_holes() {
+module ds3225_horn_holes(h=ds3225_horn_h, r=ds3225_horn_hole_ir) {
 	for (x=ds3225_horn_hole_x) {
 		translate([x, 0, 0])
-			cylinder(r=ds3225_horn_hole_ir, h=ds3225_horn_h, $fn=24, center=true);
+			cylinder(r=r, h=h, $fn=24, center=true);
 	}
 }
 

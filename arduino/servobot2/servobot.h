@@ -6,7 +6,7 @@
 #define SERVOBOT_H
 
 // Physical parameters
-#define BODY_PIVOT_R 100
+#define BODY_PIVOT_R 140
 #define HIP_L 38
 #define HIP_DZ 0
 #define LEG_L 100
@@ -14,11 +14,17 @@
 #define ANKLE_BIAS 45
 
 // Software limits
-#define HIP_DEFLECTION 30
+#define HIP_DEFLECTION 50
 #define KNEE_DEFLECTION 90
 #define ANKLE_DEFLECTION 90
-#define STEP_SIZE 50
+#define STEP_SIZE 50	   // mm to move at full speed
+#define STEP_DURATION 250  // ms per movement while walking
 #define INTERVAL_MS 5
+#define HIP_INVERT_RATIO (-0.9)  // when walking and ROM is hit, invert hip angle by this coefficient
+
+#define MIN_RIDE_ANGLE -45
+#define MAX_RIDE_ANGLE 90
+#define ANKLE_ACTIVE_ANGLE -22.5
 
 // Servo configuration
 #define MIN_PWM 102
@@ -79,9 +85,13 @@
 #define CHANNEL_TURN CHANNEL_L_EW
 #define CHANNEL_FB CHANNEL_R_NS
 #define CHANNEL_LR CHANNEL_R_EW
-// #define CHANNEL_AC_RELAY CHANNEL_SWB
 #define CHANNEL_ENABLE_DRIVE CHANNEL_SWA
-// #define CHANNEL_HEIGHT CHANNEL_DIAL_VRA
+#define CHANNEL_STEP_MODE CHANNEL_SWB
+#define STEP_MODE_GROUP 0
+#define STEP_MODE_SINGLE 1
+#define STEP_MODE_INDIV 2
+
+#define CHANNEL_LEG_SELECT CHANNEL_DIAL_VRA
 
 // Mathematical constants
 #define PI 3.141592
@@ -104,14 +114,13 @@ typedef struct {
 	unsigned short channel;
 } t_leg_pos;
 
-// Function definitions
-void angles_to_xyz(t_leg_pos * leg);
-void xyz_to_angles(t_leg_pos * leg);
+// // Function definitions
+// void angles_to_xyz(t_leg_pos * leg);
+// void xyz_to_angles(t_leg_pos * leg);
 
-float get_step_duration_ms(float speed);
-unsigned short pwmForAngle(float angle);
-void set_motor(int driver, int channel, unsigned short pwm);
-unsigned short get_current_value(int driver, int channel);
+// unsigned short pwmForAngle(float angle);
+// void set_motor(int driver, int channel, unsigned short pwm);
+// unsigned short get_current_value(int driver, int channel);
 
 // void log_debug_vals(float leg_foot_ext, float ankle, float hip_foot_angle, float raw_ankle, float raw_knee);
 
