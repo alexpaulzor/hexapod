@@ -1,5 +1,6 @@
 include <ds3225.scad>;
 include <openbeam.scad>;
+include <metric.scad>;
 $t = 0.25;
 
 axle_or = 5.2/2;
@@ -97,10 +98,6 @@ module hexfoot() {
 
 // !hexfoot();
 
-module hexfoot_stl() {
-	import("stl/hexfoot.servobot.stl");
-}
-
 hexleg_w = 50;
 hexleg_l = 100;
 hexleg_h = ds3225_horn_h + min_th;
@@ -160,10 +157,6 @@ module hexleg() {
 }
 // ! hexleg();
 
-module hexleg_stl() {
-	import("stl/hexleg.servobot.stl");
-}
-
 module hexleg_brace() {
 	difference() {
 		translate([hexleg_l, min_th, -2])
@@ -177,10 +170,6 @@ module hexleg_brace() {
 }
 
 // !hexleg_brace();
-
-module hexleg_brace_stl() {
-	import("stl/hexleg_brace.servobot.stl");
-}
 
 module hexleg_design() {
 	hexleg();
@@ -196,17 +185,6 @@ module hexleg_design() {
 }
 
 // ! hexleg_design();
-
-module hexleg_design_stl() {
-	hexleg_stl();
-	hexleg_brace_stl();
-	% ds3225_horn_stl();
-	translate([hexleg_l, 0, 0])
-		rotate([0, 0, 0])
-		ds3225(foot_rotation(), show_model=true) {
-			hexfoot_stl();
-		}
-}
 
 hexhip_l = 50;
 hexhip_w = 20;
@@ -342,10 +320,6 @@ module hexhip_brace() {
 
 // !hexhip_brace();
 
-module hexhip_stl() {
-	import("stl/hexhip.servobot.stl");
-}
-
 module hexhip_design() {
 	hexhip();
 	hexhip_brace();
@@ -358,7 +332,7 @@ module hexhip_design() {
 		}
 	// % translate([0, 0, -ds3225_horn_dz])
 	// 	ds3225(show_model=true);
-	% translate([0, 0, -ds3225_h +ds3225_horn_dz + ds3225_flange_z - tab_th]) 
+	translate([0, 0, -ds3225_h +ds3225_horn_dz + ds3225_flange_z - min_th]) 
 		servo_cap();
 	// translate(hexhip_servo_offs)
 	// 	translate([-10, 0, -hexhip_l + wire_clip_h + tab_th + min_th])
@@ -366,19 +340,6 @@ module hexhip_design() {
 }
 
 // !hexhip_design();
-
-module hexhip_design_stl() {
-	hexhip_stl();
-	% ds3225_horn_stl();
-	translate(hexhip_servo_offs)
-		rotate([90, -90, 0])
-		ds3225(knee_rotation(), show_model=true) 
-		hexleg_design_stl();
-	// % translate([0, 0, -ds3225_horn_dz])
-	// 	ds3225(show_model=true);
-	// * translate([0, 0, -ds3225_h +ds3225_horn_dz + ds3225_flange_z - tab_th]) 
-	// 	servo_cap_stl();
-}
 
 wire_clip_w = 20 + 2 * min_th;
 wire_clip_h = (ds3225_flange_l - ds3225_l)/2 + min_th;
@@ -514,7 +475,7 @@ module hexbody_center() {
 }
 // ! hexbody_center();
 
-servo_cap_h = ds3225_flange_z;
+servo_cap_h = ds3225_flange_z + 1.5;
 
 module servo_cap() {
 	corner_r = (ds3225_flange_l - ds3225_l) / 2 - min_th;
@@ -541,9 +502,13 @@ module servo_cap() {
 		}
 		ds3225_horn_to_flange() {
 			ds3225_holes();
-			ds3225(show_model=true);
+			// ds3225(show_model=true);
 			ds3225(show_model=false);
 		}
+		# translate([0, 0, -ds3225_flange_z - m5_nut_h/2])
+			rotate([0, 0, 30])
+			m5_nut();
+		
 		translate([0, 0, -ds3225_flange_l])
 			cylinder(r=5/2, h=ds3225_flange_l*2, $fn=36);
 		translate([10, 0, -21.5])
@@ -554,11 +519,7 @@ module servo_cap() {
 		ds3225(show_model=true);
 }
 
-// !servo_cap();
-
-module servo_cap_stl() {
-	import("stl/servo_cap.servobot.stl");
-}
+!servo_cap();
 
 hexframe_l = 200;
 hexframe_w = 100;
@@ -611,20 +572,3 @@ module hexbody() {
 
 // 	hexleg();
 hexbody();
-
-module hexbody_stl() {
-	hexbody_bottom_stl();
-	for (r=[0:60:hexbody_limit]) {
-		rotate([0, 0, r])
-		translate([hexbody_pivot_r, 0, 0]) 
-		rotate([180, 0, 0]) {
-			ds3225_horn_to_flange() {
-				ds3225(hip_rotation(), show_model=true)
-					hexhip_design_stl();
-			}
-			servo_cap_stl();
-		}
-	}
-}
-
-// hexbody_stl();

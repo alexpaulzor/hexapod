@@ -17,7 +17,7 @@ ds3225_horn_hole_ir = 3/2;
 ds3225_horn_or = 15/2;
 ds3225_horn_hole_x = [0, 9, 20, 24];
 
-ds3225_horn_dz = 1.5;
+ds3225_horn_dz = 1.0;
 
 module ds3225_horn_holes(h=ds3225_horn_h, r=ds3225_horn_hole_ir) {
 	for (x=ds3225_horn_hole_x) {

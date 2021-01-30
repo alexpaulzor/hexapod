@@ -20,7 +20,7 @@
 #define STEP_SIZE 50	   // mm to move at full speed
 #define STEP_DURATION 250  // ms per movement while walking
 #define INTERVAL_MS 5
-#define HIP_INVERT_RATIO (-0.9)  // when walking and ROM is hit, invert hip angle by this coefficient
+#define HIP_INVERT_RATIO (-0.7)  // when walking and ROM is hit, invert hip angle by this coefficient
 
 #define MIN_RIDE_ANGLE -45
 #define MAX_RIDE_ANGLE 90
