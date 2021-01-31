@@ -14,16 +14,17 @@
 #define ANKLE_BIAS 45
 
 // Software limits
-#define HIP_DEFLECTION 50
+#define HIP_DEFLECTION 45
 #define KNEE_DEFLECTION 90
 #define ANKLE_DEFLECTION 90
 #define STEP_SIZE 50	   // mm to move at full speed
+#define MIN_STEP_SIZE 5
 #define STEP_DURATION 250  // ms per movement while walking
 #define INTERVAL_MS 5
 #define HIP_INVERT_RATIO (-0.7)  // when walking and ROM is hit, invert hip angle by this coefficient
 
 #define MIN_RIDE_ANGLE -45
-#define MAX_RIDE_ANGLE 90
+#define MAX_RIDE_ANGLE 60
 #define ANKLE_ACTIVE_ANGLE -22.5
 
 // Servo configuration

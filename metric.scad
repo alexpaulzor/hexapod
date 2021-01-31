@@ -60,3 +60,14 @@ module m10_nut(core=false) {
 module m12_nut(core=false) {
 	m_nut(12/2, m12_nut_or, m12_nut_h+0.1, core);
 }
+
+m5_screw_cap_h = 2.5;
+m5_screw_cap_or = 5;
+
+module m5_screw(h=8) {
+	cylinder(r=5/2, h=h, $fn=32);
+	translate([0, 0, -m5_screw_cap_h])
+		cylinder(r=m5_screw_cap_or, h=m5_screw_cap_h, $fn=48);
+}
+
+// !m5_screw();

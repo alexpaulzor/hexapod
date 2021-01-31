@@ -259,7 +259,7 @@ void smooth_move_leg(t_leg_pos * leg, long duration_ms) {
 
 float get_ankle_angle(float knee_angle) {
     if (knee_angle > ANKLE_ACTIVE_ANGLE) 
-        return mapf(knee_angle, ANKLE_ACTIVE_ANGLE, KNEE_DEFLECTION, MAX_RIDE_ANGLE, MIN_RIDE_ANGLE);
+        return mapf(knee_angle, ANKLE_ACTIVE_ANGLE, MAX_RIDE_ANGLE, KNEE_DEFLECTION, -ANKLE_BIAS);
     return KNEE_DEFLECTION;
 }
 
@@ -385,31 +385,46 @@ void walk(t_leg_pos * legs[NUM_LEGS], float dx, float dy, float ride_angle) {
     int leg = 0;
     int ref_leg = last_leg + 1;
     for (int dleg = 0; dleg < NUM_LEGS; dleg++) {
-        leg = (ref_leg + dleg) % NUM_LEGS;
-        
+        leg = (ref_leg + dleg) % NUM_LEGS; 
         if (legs[leg]->knee_angle < MIN_RIDE_ANGLE) {
             legs[leg]->knee_angle = ride_angle;
             legs[leg]->ankle_angle = get_ankle_angle(ride_angle);
-            // angles_to_xyz(legs[leg]);
+            if (abs(legs[leg]->hip_angle) >= abs(HIP_DEFLECTION * HIP_INVERT_RATIO)) {
+                legs[leg]->hip_angle = legs[leg]->hip_angle * HIP_INVERT_RATIO;
+            } else {
+                legs[leg]->hip_angle = 0;
+            }
         }
+        angles_to_xyz(legs[leg]);
     } 
     smooth_move_legs(legs, STEP_DURATION);
+    int all_within_rom = 0;
+    while (!all_within_rom && (abs(dx) > MIN_STEP_SIZE || abs(dy) > MIN_STEP_SIZE)) {
+        all_within_rom = 1;
+        for (int dleg = 0; dleg < NUM_LEGS; dleg++) {
+            leg = (ref_leg + dleg) % NUM_LEGS;
+            if (within_rom(legs[leg]) 
+                    && !point_within_rom(
+                        legs[leg]->rotation, 
+                        legs[leg]->x + dx, 
+                        legs[leg]->y + dy, 
+                        legs[leg]->z)) {
+                all_within_rom = 0;
+                dx = dx / 2;
+                dy = dy / 2;
+                last_leg = leg;
+                break;
+            }
+        }
+    }
     for (int dleg = 0; dleg < NUM_LEGS; dleg++) {
-        leg = (ref_leg + dleg) % NUM_LEGS;
-        // if (rom_exceeded == 0 || leg % 2 != last_leg % 2 || walk_mode == STEP_MODE_SINGLE) {
-        angles_to_xyz(legs[leg]);
-        if (point_within_rom(legs[leg]->rotation, legs[leg]->x + dx, legs[leg]->y + dy, legs[leg]->z)) {
-            legs[leg]->x += dx;
-            legs[leg]->y += dy;
-            xyz_to_angles(legs[leg]);
-        } else if (rom_exceeded == 0) {
+        leg = (last_leg + dleg) % NUM_LEGS;
+        legs[leg]->x += dx;
+        legs[leg]->y += dy;
+        xyz_to_angles(legs[leg]);
+        if (rom_exceeded == 0 && !within_rom(legs[leg])) {
             for (int leg2 = leg; leg2 < leg + (walk_mode == STEP_MODE_GROUP ? NUM_LEGS : 1); leg2 += 2) {
                 // Raise leg group to be dropped next step
-                if (abs(legs[leg2 % NUM_LEGS]->hip_angle) >= abs(HIP_DEFLECTION * HIP_INVERT_RATIO)) {
-                    legs[leg2 % NUM_LEGS]->hip_angle = legs[leg2 % NUM_LEGS]->hip_angle * HIP_INVERT_RATIO;
-                } else {
-                    legs[leg2 % NUM_LEGS]->hip_angle = 0;
-                }
                 legs[leg2 % NUM_LEGS]->knee_angle = -90;
                 legs[leg2 % NUM_LEGS]->ankle_angle = 90;
                 angles_to_xyz(legs[leg2 % NUM_LEGS]);
@@ -420,7 +435,6 @@ void walk(t_leg_pos * legs[NUM_LEGS], float dx, float dy, float ride_angle) {
             //     beeps(leg+1);
             // }
         }
-        // }  
     }
 
     smooth_move_legs(legs, STEP_DURATION);

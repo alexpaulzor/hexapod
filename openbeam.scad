@@ -36,9 +36,27 @@ module tee_bracket() {
         }
         for (xi=[-1, 0, 1]) {
             translate([xi * openbeam_w, 0, 0])
-                cylinder(r=3/2, h=2*mount_cube_h, center=true);
+                cylinder(r=3/2, h=openbeam_w*2, center=true);
             translate([0, (xi+1) * openbeam_w, 0])
-                cylinder(r=3/2, h=2*mount_cube_h, center=true);
+                cylinder(r=3/2, h=openbeam_w*2, center=true);
         }
     }
 }
+
+module l_bracket() {
+    difference() {
+        union() {
+            translate([0, openbeam_w, 0]) 
+                cube([openbeam_w, 3 * openbeam_w, openbeam_bracket_th], center=true);
+            translate([openbeam_w, 0, 0]) 
+                cube([3 * openbeam_w, openbeam_w, openbeam_bracket_th], center=true);
+        }
+        for (xi=[0, 1, 2]) {
+            translate([xi * openbeam_w, 0, 0])
+                cylinder(r=3/2, h=2*openbeam_w, center=true);
+            translate([0, xi * openbeam_w, 0])
+                cylinder(r=3/2, h=2*openbeam_w, center=true);
+        }
+    }
+}
+// !l_bracket();
