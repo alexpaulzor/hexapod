@@ -9,7 +9,7 @@ ds3225_flange_hole_ir = 3.5/2;
 ds3225_flange_holes_c_c = [49.5, 10];
 ds3225_axle_flange_offset = 17.25;
 
-ds3225_horn_l = 35.2;
+ds3225_horn_l = 35.5;
 ds3225_horn_w = 8;
 ds3225_horn_h = 6.2;
 ds3225_horn_d = 3.5;
@@ -19,7 +19,7 @@ ds3225_horn_hole_x = [0, 9, 20, 24];
 
 ds3225_horn_dz = 1.0;
 
-module ds3225_horn_holes(h=ds3225_horn_h, r=ds3225_horn_hole_ir) {
+module ds3225_horn_holes(h=ds3225_horn_h*3, r=ds3225_horn_hole_ir) {
 	for (x=ds3225_horn_hole_x) {
 		translate([x, 0, 0])
 			cylinder(r=r, h=h, $fn=24, center=true);
@@ -84,7 +84,7 @@ module ds3225_horn_to_flange(dir=1) {
 	children();
 }
 
-module ds3225_holes() {
+module ds3225_holes(r=ds3225_flange_hole_ir, h=2*ds3225_h) {
 	ds3225_center_to_horn() {
 		for (x=[-1, 1]) {
 			for (y=[-1, 1]) {
@@ -92,7 +92,7 @@ module ds3225_holes() {
 					x * ds3225_flange_holes_c_c[0]/2,
 					y * ds3225_flange_holes_c_c[1]/2,
 					0])
-				cylinder(r=ds3225_flange_hole_ir, h=2*ds3225_h, $fn=36, center=true);
+				cylinder(r=r, h=h, $fn=36, center=true);
 			}
 		}
 		// cube([ds3225_l + 1, ds3225_w + 1, ds3225_h], center=true);

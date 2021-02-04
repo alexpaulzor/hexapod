@@ -1,11 +1,12 @@
 include <ds3225.scad>;
+include <cast_parts.scad>;
 include <openbeam.scad>;
 include <metric.scad>;
 $t = 0.25;
 
 axle_or = 5.2/2;
 
-hip_rom = 120;
+hip_rom = 90;
 knee_bias = -90;
 ankle_bias = 45;
 knee_rom = 180;
@@ -15,9 +16,9 @@ foot_rom = 180;
 // function knee_rotation() = -knee_rom * abs(sin(180*$t*2)) + knee_rom/2 + knee_bias;
 // function foot_rotation() = foot_rom * abs(sin(180*$t*4)) - foot_rom/2;
 
-hip_angle = 60;
+hip_angle = 45;
 knee_angle = -70;
-ankle_angle = 0;
+ankle_angle = -90;
 
 function hip_rotation() = hip_angle;
 function knee_rotation() = knee_angle + knee_bias;
@@ -32,68 +33,72 @@ min_th = 2;
 // hexfoot_w = 15;
 // hexleg_d = 24;
 hexfoot_w = 50;
-hexfoot_l = 150;
+hexfoot_l = 170;
 hexfoot_h = ds3225_horn_h + min_th;
 hexfoot_d = 20;
 
 hexfoot_bridge_l = 45;
 
+hexfoot_frame_dz = -ds3225_h + ds3225_flange_z - openbeam_w/2 - tab_th;
+
+module hexfoot_frame() {
+	translate([hexleg_bridge_l + openbeam_w/2, 0, -25])
+		openbeam(50);
+	translate([hexleg_bridge_l + openbeam_w + 50, 0, hexfoot_frame_dz])
+		rotate([0, 90, 0])
+		openbeam(100);
+	translate([hexleg_bridge_l + openbeam_w - 25, 0, -50 - openbeam_w/2])
+		rotate([0, 90, 0])
+		openbeam(50);
+	
+	translate([hexleg_bridge_l + openbeam_w/2, -openbeam_w/2-openbeam_bracket_th/2, -50 - openbeam_w/2])
+		rotate([90, -90, 0])
+		l_bracket();
+
+	translate([hexleg_bridge_l + openbeam_w/2, openbeam_w/2 + openbeam_bracket_th/2, hexfoot_frame_dz])
+	rotate([90, 90, 0])
+		tee_bracket();
+}
+
+hexfoot_r = 15;
+
+// module hexfoot_tip() {
+// 	difference() {
+// 	    sphere(r=hexfoot_r);
+// 		translate([(hexfoot_r-2)/2, 0, 0])
+// 			sphere(r=hexfoot_r/2);
+// 		// translate([-hexfoot_r/2, 0, 0])
+// 		// 	rotate([0, 90, 0]) 
+// 		// 	openbeam(hexfoot_r*2);
+// 		translate([-hexfoot_r, 0, 0])
+// 			cube([hexfoot_r*3, openbeam_w + 0.2, openbeam_w + 0.2], center=true);
+// 		rotate([90, 0, 0])
+// 			cylinder(r=3.2/2, h=40, center=true, $fn=32);
+// 		cylinder(r=3.2/2, h=40, center=true, $fn=32);
+// 		for (r=[0:90:360]) {
+// 			rotate([r, 0, 0])
+// 				translate([0, 0, openbeam_w/2 + min_th])
+// 				cylinder(
+// 					r=9/2, h=hexfoot_r - openbeam_w/2 - min_th, $fn=32);
+// 		}
+// 		translate([-hexfoot_r, 0, 0])
+// 			cube([hexfoot_r/2, 2*hexfoot_r, 2*hexfoot_r], center=true);
+// 	}
+// }
+
+// ! hexfoot_tip();
+
 module hexfoot() {
-	difference() {
-		union() { 
-			translate([0, -hexfoot_d/2, 0])
-				cube([hexfoot_bridge_l, hexfoot_d, hexfoot_h]);
-			translate([0, -hexfoot_d/2, -hexfoot_w])
-				cube([hexfoot_bridge_l, hexfoot_d, tab_th]);
-			translate([0, 0, 6.2])
-				cylinder(r=hexfoot_d/2, h=min_th, $fn=36);
-			translate([0, 0, -hexfoot_w])
-				cylinder(r=hexfoot_d/2, h=tab_th, $fn=36);
-			translate([hexfoot_bridge_l, -hexfoot_d/2, -hexfoot_w])
-				cube([min_th, hexfoot_d, hexfoot_w + hexfoot_h]);
-			* translate([hexfoot_l, 0, -2])
-				ds3225_center_to_horn()
-				cube([ds3225_flange_l, hexfoot_d, 20], center=true);
-			translate([
-					hexfoot_bridge_l + (hexfoot_l - hexfoot_bridge_l)/2, 
-					0, -hexfoot_w/2 + tab_th/2])
-				rotate([0, 90, 0])
-				translate([-ds3225_horn_h/2 + 0.4, 0, 0])
-				intersection() {
-					cylinder(r1=(hexfoot_w+hexfoot_h)/2 + tab_th, r2=0, h=hexfoot_l - hexfoot_bridge_l, center=true);
-					cube([(hexfoot_w + hexfoot_h), hexfoot_d, 100], center=true);
-				}
-			// translate([hexhip_l - 20, 0, -ds3225_axle_flange_offset - 3])
-			* translate([hexfoot_l, -1, -33])
-				cube([20, 22, 20], center=true);
-			
-		}
-		ds3225_horn();
-		translate([0, 0, hexfoot_h])
-			ds3225_horn_holes();
-		translate([0, 0, hexfoot_h/4])
-			ds3225_horn_holes();
-		translate([0, 0, -ds3225_flange_l])
-			cylinder(r=5/2, h=ds3225_flange_l*2, $fn=36);
-		* translate([hexfoot_l, 0, 0])
-			rotate([0, 0, 0]) {
-				ds3225(show_model=false);
-				ds3225_holes();
-				translate([0, 10, -2])
-					ds3225_center_to_horn()
-					cube([ds3225_l-10, 10, 20+1], center=true);
-				translate([0, 0, -ds3225_flange_l])
-					cylinder(r=axle_or, h=ds3225_flange_l*2, $fn=36);
-			}
-		translate([
-					hexfoot_bridge_l + (hexfoot_l - hexfoot_bridge_l)/2, 
-					0, -hexfoot_w/2 + tab_th/2])
-				rotate([0, 90, 0])
-				translate([-ds3225_horn_h/2 + 0.4, 0, 0])
-					cylinder(r1=(hexfoot_w+hexfoot_h)/2 - tab_th, r2=0, h=(hexfoot_l - hexfoot_bridge_l)-6, center=true);
-		// translate([0, 0, -50])
-		// 	cube([100, 100, 100]);
-	}
+	hexleg_fork_horn();
+	hexleg_fork_pivot();
+	% hexfoot_frame();
+	// translate([hexfoot_l - hexfoot_r, 0, -25])
+	// 	hexfoot_tip();
+
+	
+	
+	// rotate([0, 0, 0])
+	// % ds3225(knee_rotation());
 }
 
 // !hexfoot();
@@ -103,14 +108,16 @@ hexleg_l = 150;
 hexleg_h = ds3225_horn_h + min_th;
 hexleg_d = 24;
 
+hexleg_motor_dy = openbeam_w/2 + ds3225_w/2;
+
 hexleg_bridge_l = 48;
 
 module hexleg_frame() {
 	translate([hexleg_bridge_l + openbeam_w/2, 0, -25])
 		openbeam(50);
-	translate([hexleg_bridge_l + openbeam_w/2 + 25, 0, -25])
+	translate([hexleg_bridge_l + openbeam_w + 50, 0, hexfoot_frame_dz])
 		rotate([0, 90, 0])
-		openbeam(50);
+		openbeam(100);
 	translate([hexleg_bridge_l + openbeam_w - 25, 0, -50 - openbeam_w/2])
 		rotate([0, 90, 0])
 		openbeam(50);
@@ -119,7 +126,7 @@ module hexleg_frame() {
 		rotate([90, -90, 0])
 		l_bracket();
 
-	translate([hexleg_bridge_l + openbeam_w/2, openbeam_w/2 + openbeam_bracket_th/2, -25])
+	translate([hexleg_bridge_l + openbeam_w/2, openbeam_w/2 + openbeam_bracket_th/2, hexfoot_frame_dz])
 	rotate([90, 90, 0])
 		tee_bracket();
 }
@@ -129,26 +136,26 @@ hexleg_fork_d = openbeam_w + 2*min_th;
 
 module hexleg_fork_horn() {
 	difference() {
-		union() { 
-			intersection() {
-				translate([hexleg_fork_shift, 0, 0]) {
-					rotate([0, 90, 0])
-					cylinder(
-						r=hexleg_fork_d/2, 
-						h=hexleg_bridge_l - hexleg_fork_shift + openbeam_w + min_th);
-				}
-				translate([-openbeam_w, -hexleg_fork_d, 0])
+		// union() { 
+			// intersection() {
+			// 	* translate([-hexleg_fork_shift, 0, hexleg_fork_d/4]) {
+			// 		rotate([0, 90, 0])
+			// 		cylinder(
+			// 			r=hexleg_fork_d/2, 
+			// 			h=hexleg_bridge_l + hexleg_fork_shift + openbeam_w + min_th);
+			// 	}
+				translate([-openbeam_w, -hexleg_fork_d/2, 0])
 					cube([hexleg_bridge_l + 2*openbeam_w + min_th, 
-					2*hexleg_fork_d, openbeam_w]);
-			}
-			translate([hexleg_bridge_l, -hexleg_fork_d/2, -openbeam_w])
-				cube([openbeam_w, min_th, openbeam_w]);
+					hexleg_fork_d, openbeam_w]);
+			// }
+			// * translate([hexleg_bridge_l, -hexleg_fork_d/2, -openbeam_w])
+			// 	cube([openbeam_w, min_th, openbeam_w + hexleg_fork_d/4]);
 			
-			translate([hexleg_bridge_l + openbeam_w, -hexleg_fork_d/2, -openbeam_w])
-				cube([min_th, hexleg_fork_d, openbeam_w]);
-			translate([hexleg_bridge_l - min_th, -hexleg_fork_d/2, -2*openbeam_w])
-				cube([min_th, hexleg_fork_d, 2*openbeam_w]);
-		}
+			// * translate([hexleg_bridge_l + openbeam_w, -hexleg_fork_d/2, -openbeam_w])
+			// 	cube([min_th, hexleg_fork_d, openbeam_w + hexleg_fork_d/4]);
+			// * translate([hexleg_bridge_l - min_th, -hexleg_fork_d/2, -openbeam_w])
+			// 	cube([min_th, hexleg_fork_d, openbeam_w + hexleg_fork_d/4]);
+		// }
 
 		translate([hexleg_bridge_l + openbeam_w/2, 0, -3*openbeam_w/2])
 			rotate([90, 0, 90])
@@ -161,18 +168,27 @@ module hexleg_fork_horn() {
 			cylinder(r=3.2/2, h=30, center=true, $fn=32);
 		
 		translate([hexleg_bridge_l + openbeam_w/2, 0, tab_th])
-			cylinder(r=4, h=openbeam_w, $fn=32);
-		translate([hexleg_bridge_l + openbeam_w/2, 0, 0])
+			cylinder(r=4.5, h=openbeam_w, $fn=32);
+		for (dx=[0, -15, -30])
+			translate([hexleg_bridge_l + openbeam_w/2 + dx, 0, openbeam_w/2])
+			rotate([90, 0, 0])
 			cylinder(r=3.2/2, h=30, center=true, $fn=32);
-		# ds3225_horn();
+		translate([hexleg_bridge_l + openbeam_w/2, 0, 1])
+			cylinder(r=3.2/2, h=30, center=true, $fn=32);
+		cast_ds3225_horn();
 		ds3225_horn_holes(30);
+		translate([0, 0, hexhip_w/2 + 5])
+				// hexhip_h-2 + ds3225_horn_h + min_th])
+			ds3225_horn_holes(h=10, r=5);
+		
 		// # cylinder(r=18/2, h=30);
 		// hexleg_frame();
 		
 	}
 }
+// ! cast_ds3225_horn();
 
-// !hexleg_fork_horn();
+!hexleg_fork_horn();
 
 hexleg_fork_pivot_l = 40;
 
@@ -209,46 +225,101 @@ module hexleg_fork_pivot() {
 	}
 }
 
-module hexleg() {
-	hexleg_fork_horn();
-	hexleg_fork_pivot();
+module motor_plate() {
 	difference() {
-		union() { 
-			translate([hexleg_l, 0, -2])
-				ds3225_center_to_horn()
-				cube([ds3225_flange_l, hexleg_d, 20], center=true);
-			translate([hexleg_l, -1, -35])
-				cube([20, 22, 20], center=true);
-			
+		union() {
+			translate([ds3225_axle_flange_offset - ds3225_flange_l, 
+				-openbeam_w/2, -ds3225_h + ds3225_flange_z - tab_th])
+				// -25 + openbeam_w/2])
+				cube([ds3225_flange_l, 
+					ds3225_w + openbeam_w + tab_th, tab_th]);
+			translate([
+					ds3225_axle_flange_offset - 4, 
+					-openbeam_w/2, -25 - openbeam_w/2])
+				cube([4, 
+					openbeam_w, 
+					openbeam_w]);
 		}
-		translate([hexleg_l, 0, 0])
+
+		translate([0, hexleg_motor_dy, 0])
 			rotate([0, 0, 0]) {
 				ds3225(foot_rotation(), show_model=false);
 				ds3225_holes();
-				translate([0, 10, -2])
-					ds3225_center_to_horn()
-					cube([ds3225_l-10, 10, 20+1], center=true);
-				
-
-				# translate([0, 0, -43.7])
-					rotate([180, 0, 0])
-					m5_screw();
-					// cylinder(r=axle_or, h=ds3225_flange_l*2, $fn=36);
-				
 			}
-		translate([hexleg_bridge_l + 9, 0, -hexleg_w/2 + 2.4])
-			rotate([90, 0, 0])
-			cylinder(r=7, h=26, center=true);
-		# hexleg_brace();
-		hexleg_frame();
+		for (dx=[-25:15:15])
+			translate([dx, 0, -25])
+			cylinder(r=3.2/2, h=30, center=true, $fn=32);
+		translate([15, 0, -25])
+			rotate([0, 90, 0])
+			cylinder(r=3.2/2, h=30, center=true, $fn=32);
+	
 	}
+
+}
+
+module pivot_plate() {
+	difference() {
+		union() {
+			translate([
+					-openbeam_w/2, -openbeam_w/2, 
+					-ds3225_h - 4.5])
+				cube([
+					openbeam_w + 5.7, openbeam_w + ds3225_w, 4.5]);
+			translate([
+					-openbeam_w/2, -openbeam_w/2, 
+					-ds3225_h - 4])
+				cube([
+					openbeam_w + 5.7, openbeam_w, ds3225_flange_z - openbeam_w]);
+			translate([
+					-openbeam_w/2, -openbeam_w/2 - min_th, 
+					-25 - openbeam_w/2 - tab_th])
+				cube([
+					openbeam_w + 5.7, min_th, openbeam_w + tab_th]);
+		
+		}
+		translate([
+				0, -tab_th, 
+				-25 -openbeam_w - min_th])
+			rotate([0, 90, 0])
+			cylinder(r=openbeam_w/2, h=50, center=true, $fn=32);
+		translate([
+				-openbeam_w/2-1, -openbeam_w/2 - tab_th, 
+				-25 -2*openbeam_w])
+			cube([2*openbeam_w+2, openbeam_w, openbeam_w]);
+		translate([
+				-openbeam_w/2-1, -openbeam_w, 
+				-25 -3*openbeam_w/2 - min_th])
+			cube([2*openbeam_w+2, openbeam_w, openbeam_w]);
+		translate([0, 0, -25])
+			rotate([90, 0, 0])
+			cylinder(r=3.2/2, h=30, center=true, $fn=32);
+		
+		translate([0, 0, -25 - openbeam_w - min_th])
+			cylinder(r=4.5, h=openbeam_w, center=true, $fn=32);
+		translate([0, 0, -2*openbeam_w])
+			cylinder(r=3.2/2, h=30, center=true, $fn=32);
+		# translate([0, hexleg_motor_dy, -ds3225_h - m5_screw_cap_h])
+			rotate([180, 0, 0])
+			m5_screw();
+	}
+	
+}
+
+module hexleg() {
+	hexleg_fork_horn();
+	hexleg_fork_pivot();
+
 	% hexleg_frame();
-	// translate([hexleg_l, 0, 0])
+	translate([hexleg_l, 0, 0])
+		motor_plate();
+	translate([hexleg_l, 0, 0])
+		pivot_plate();
 	// rotate([0, 0, 0])
 	// % ds3225(knee_rotation());
 }
-! hexleg();
+// ! hexleg();
 
+/*
 module hexleg_brace() {
 	difference() {
 		translate([hexleg_l, hexleg_d/4, -2])
@@ -262,23 +333,23 @@ module hexleg_brace() {
 		}
 	}
 }
-
+*/
 // !hexleg_brace();
 
 module hexleg_design() {
 	hexleg();
-	hexleg_brace();
+	// hexleg_brace();
 	% ds3225_horn();
-	translate([hexleg_l, 0, 0])
+	translate([hexleg_l, hexleg_motor_dy, 0])
 		rotate([0, 0, 0]) {
 			ds3225(foot_rotation(), show_model=true) {
 				hexfoot();
 			}
-			wire_clip();
+			// wire_clip();
 		}
 }
 
-// ! hexleg_design();
+! hexleg_design();
 
 hexhip_l = 50;
 hexhip_w = 20;
@@ -326,7 +397,7 @@ module hexhip() {
 			}
 			translate([0, 0, -hexhip_z]) 
 				cylinder(r=hexhip_w/2, h=tab_th);
-			translate([hexhip_l - 20, 0, -ds3225_axle_flange_offset - 3])
+			*translate([hexhip_l - 20, 0, -ds3225_axle_flange_offset - 3])
 				cube([20, 22, 20]);
 		}
 		hexhip_brace();
@@ -363,12 +434,10 @@ module hexhip() {
 		translate(hexhip_servo_offs)
 			rotate([90, -90, 0]) {
 				ds3225(knee_rotation(), show_model=false);
+				// % ds3225(knee_rotation(), show_model=true);
 				translate([0, 0, -ds3225_flange_l])
 					cylinder(r=axle_or, h=ds3225_flange_l*2, $fn=36);
 			}
-		# translate([hexhip_servo_x, 20.7, -10])
-			rotate([-90, 0, 0])
-			m5_screw();
 				
 		translate([25, 0, -ds3225_l/2])
 			cube([10, hexhip_w+1, ds3225_l-10], center=true);
@@ -384,6 +453,31 @@ module hexhip() {
 }
 
 // ! hexhip();
+
+module hexhip_pivot() {
+	difference() {
+		translate([hexhip_servo_x - ds3225_w/2, 10, -ds3225_flange_l + 7.5])
+			cube([ds3225_w, 12.5, ds3225_flange_l]);
+		translate(hexhip_servo_offs)
+			rotate([90, -90, 0]) {
+				ds3225(knee_rotation(), show_model=false);
+				% ds3225(knee_rotation(), show_model=true);
+				ds3225_holes();
+			}	
+		translate([hexhip_servo_x - 4, 10, 0])
+			cube([8, 5, 8]);
+		translate([hexhip_servo_x - ds3225_w/2, 20, 0.5])
+			cube([ds3225_w, 2.5, 7]);
+		translate([hexhip_servo_x - ds3225_w/2, 20, -ds3225_flange_l + 7.5])
+			cube([ds3225_w, 2.5, 7]);
+		# translate([hexhip_servo_x, 20.7, -10])
+			rotate([-90, 0, 0])
+			m5_screw();
+	}	
+
+}
+
+// !hexhip_pivot();
 
 module hexhip_brace_offs() {
 	translate([hexhip_servo_x, ds3225_horn_w/2, 
@@ -422,12 +516,13 @@ module hexhip_brace() {
 module hexhip_design() {
 	hexhip();
 	hexhip_brace();
+	hexhip_pivot();
 	ds3225_horn();
 	translate(hexhip_servo_offs)
 		rotate([90, -90, 0]) {
 			ds3225(knee_rotation(), show_model=true) 
 			hexleg_design();
-			wire_clip();
+			// wire_clip();
 		}
 	// % translate([0, 0, -ds3225_horn_dz])
 	// 	ds3225(show_model=true);
