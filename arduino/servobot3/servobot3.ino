@@ -79,7 +79,6 @@ void print_leg(t_leg_pos * leg) {
         ", ankle=" + String(leg->ankle_angle));
 }
 
-
 void xyz_to_angles(t_leg_pos * leg) {
     // TODO: Fix knee/ankle signs
     float dx = leg->x - BODY_PIVOT_R * cos(DEG2RAD * (leg->rotation));
@@ -112,33 +111,33 @@ void xyz_to_angles(t_leg_pos * leg) {
     //     "; lfe=" + String(leg_foot_ext) +
     //     "; loc_top=" + String(loc_top) +
     //     "; loc_bottom=" + String(loc_bottom));
-    float raw_ankle;
+    float ankle_prime;
     if (leg_foot_ext > LEG_L + FOOT_L) {
         // full extension
-        raw_ankle = 180;
+        ankle_prime = 180;
     } else {
-        raw_ankle = acos(loc_top / loc_bottom) * RAD2DEG;
+        ankle_prime = acos(loc_top / loc_bottom) * RAD2DEG;
     }
 
-    float ankle = 180 - raw_ankle - ANKLE_BIAS;
+    float ankle = 180 - ankle_prime - ANKLE_BIAS;
     // Serial.println(
-    //     "raw_ankle=" + String(raw_ankle) +
+    //     "ankle_prime=" + String(ankle_prime) +
     //     "; ankle=" + String(ankle));
 
-    float hip_foot_angle = asin(dz / leg_foot_ext) * RAD2DEG;
+    float hip_foot_angle = -asin(dz / leg_foot_ext) * RAD2DEG;
 
-    float raw_knee = hip_foot_angle - 90 + raw_ankle/2.0;
+    float knee = hip_foot_angle - 90 + ankle_prime/2.0;
 
     // Serial.println(
     //     "hfa=" + String(hip_foot_angle) +
     //     "; raw_knee=" + String(raw_knee));
     leg->ankle_angle = constrain(ankle, -90, 90);
-    leg->knee_angle = constrain(raw_knee, -90, 90);
+    leg->knee_angle = constrain(knee, -90, 90);
     
-    if (walk_mode != STEP_MODE_GROUP && leg->rotation == 0) {
-        Serial.println("xyz->a");
-        print_leg(leg);
-    }
+    // if (walk_mode != STEP_MODE_GROUP && leg->rotation == 0) {
+        // Serial.println("xyz->a");
+        // print_leg(leg);
+    // }
 }
 
 void angles_to_xyz(t_leg_pos * leg) {
@@ -160,12 +159,11 @@ void angles_to_xyz(t_leg_pos * leg) {
     leg->y += extension_x * sin(DEG2RAD * (leg->rotation + leg->hip_angle));
     leg->z += extension_z;
     
-    if (walk_mode != STEP_MODE_GROUP && leg->rotation == 0) {
-        Serial.println("a->xyz");
-        print_leg(leg);
-    }
+    // if (walk_mode != STEP_MODE_GROUP && leg->rotation == 0) {
+        // Serial.println("a->xyz");
+        // print_leg(leg);
+    // }
 }
-
 
 int within_rom(t_leg_pos * leg) {
     return (
