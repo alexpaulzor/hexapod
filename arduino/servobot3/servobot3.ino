@@ -79,6 +79,7 @@ void print_leg(t_leg_pos * leg) {
         ", ankle=" + String(leg->ankle_angle));
 }
 
+
 void xyz_to_angles(t_leg_pos * leg) {
     // TODO: Fix knee/ankle signs
     float dx = leg->x - BODY_PIVOT_R * cos(DEG2RAD * (leg->rotation));
@@ -99,10 +100,18 @@ void xyz_to_angles(t_leg_pos * leg) {
 
     // Now dx, dy, dz are the component distances from knee pivot to foot tip
     float leg_foot_ext = sqrt(dx * dx + dy * dy + dz * dz);
-    // leg_foot_ext is linear distance from hip pivot to foot tip (long side of iso triangle with ankle_angle as center)
+    // leg_foot_ext is linear distance from hip pivot to foot tip (side of triangle opposite ankle_angle)
     // law of cosines to the rescue
-    float loc_top = LEG_L * LEG_L + FOOT_L * FOOT_L - leg_foot_ext * leg_foot_ext;
-    float loc_bottom = 2 * LEG_L * FOOT_L;
+
+    float loc_top = 1.0 * (LEG_L * LEG_L) + (FOOT_L * FOOT_L) - (leg_foot_ext * leg_foot_ext);
+    float loc_bottom = 2.0 * LEG_L * FOOT_L;
+    // Serial.println(
+    //     "dx=" + String(dx) +
+    //     "; dy=" + String(dy) +
+    //     "; dz=" + String(dz) +
+    //     "; lfe=" + String(leg_foot_ext) +
+    //     "; loc_top=" + String(loc_top) +
+    //     "; loc_bottom=" + String(loc_bottom));
     float raw_ankle;
     if (leg_foot_ext > LEG_L + FOOT_L) {
         // full extension
@@ -112,16 +121,24 @@ void xyz_to_angles(t_leg_pos * leg) {
     }
 
     float ankle = 180 - raw_ankle - ANKLE_BIAS;
+    // Serial.println(
+    //     "raw_ankle=" + String(raw_ankle) +
+    //     "; ankle=" + String(ankle));
 
     float hip_foot_angle = asin(dz / leg_foot_ext) * RAD2DEG;
 
     float raw_knee = hip_foot_angle - 90 + raw_ankle/2.0;
 
-    // log_debug_vals(leg_foot_ext, ankle, hip_foot_angle, raw_ankle, raw_knee);
-
+    // Serial.println(
+    //     "hfa=" + String(hip_foot_angle) +
+    //     "; raw_knee=" + String(raw_knee));
     leg->ankle_angle = constrain(ankle, -90, 90);
     leg->knee_angle = constrain(raw_knee, -90, 90);
     
+    if (walk_mode != STEP_MODE_GROUP && leg->rotation == 0) {
+        Serial.println("xyz->a");
+        print_leg(leg);
+    }
 }
 
 void angles_to_xyz(t_leg_pos * leg) {
@@ -142,6 +159,11 @@ void angles_to_xyz(t_leg_pos * leg) {
     leg->x += extension_x * cos(DEG2RAD * (leg->rotation + leg->hip_angle));
     leg->y += extension_x * sin(DEG2RAD * (leg->rotation + leg->hip_angle));
     leg->z += extension_z;
+    
+    if (walk_mode != STEP_MODE_GROUP && leg->rotation == 0) {
+        Serial.println("a->xyz");
+        print_leg(leg);
+    }
 }
 
 
@@ -150,7 +172,7 @@ int within_rom(t_leg_pos * leg) {
         (-HIP_DEFLECTION < leg->hip_angle && leg->hip_angle < HIP_DEFLECTION) &&
         (-KNEE_DEFLECTION < leg->knee_angle && leg->knee_angle < KNEE_DEFLECTION) &&
         (-ANKLE_DEFLECTION <= leg->ankle_angle && leg->ankle_angle <= ANKLE_DEFLECTION) &&
-        abs(leg->ankle_angle + ANKLE_BIAS) > 1); // != 0 because this means the leg is pointed straight away, not articulated
+        abs(leg->ankle_angle - ANKLE_BIAS) > 1); // != 0 because this means the leg is pointed straight away, not articulated
 }
 
 int point_within_rom(float rotation, float x, float y, float z) {
@@ -388,6 +410,10 @@ void walk(t_leg_pos * legs[NUM_LEGS], float dx, float dy, float ride_angle) {
     for (int dleg = 0; dleg < NUM_LEGS; dleg++) {
         leg = (ref_leg + dleg) % NUM_LEGS; 
         if (legs[leg]->knee_angle > MIN_RIDE_ANGLE) {
+            if (walk_mode != STEP_MODE_GROUP) {
+                Serial.println("In air: " + String(leg));
+                print_leg(legs[leg]);
+            }
             legs[leg]->knee_angle = ride_angle;
             legs[leg]->ankle_angle = get_ankle_angle(ride_angle);
             if (abs(legs[leg]->hip_angle) >= abs(HIP_DEFLECTION * HIP_INVERT_RATIO)) {
@@ -413,17 +439,24 @@ void walk(t_leg_pos * legs[NUM_LEGS], float dx, float dy, float ride_angle) {
                 all_within_rom = 0;
                 dx = dx / 2;
                 dy = dy / 2;
-                last_leg = leg;
+                // last_leg = leg;
                 break;
             }
         }
     }
     for (int dleg = 0; dleg < NUM_LEGS; dleg++) {
-        leg = (last_leg + dleg) % NUM_LEGS;
+        leg = (ref_leg + dleg) % NUM_LEGS;
         legs[leg]->x += dx;
         legs[leg]->y += dy;
         xyz_to_angles(legs[leg]);
         if (rom_exceeded == 0 && !within_rom(legs[leg])) {
+            if (walk_mode != STEP_MODE_GROUP) {
+                Serial.println(
+                    "Rom hit: " + String(leg) +
+                    "; dx=" + String(dx) +
+                    "; dy=" + String(dy));
+                print_leg(legs[leg]);
+            }
             for (int leg2 = leg; leg2 < leg + (walk_mode == STEP_MODE_GROUP ? NUM_LEGS : 1); leg2 += 2) {
                 // Raise leg group to be dropped next step
                 legs[leg2 % NUM_LEGS]->knee_angle = 90;
@@ -445,20 +478,20 @@ void articulate_leg(t_leg_pos * legs[NUM_LEGS], float dhip, float dknee, float d
     // legs[last_leg]->hip_angle = mapf(lr, -1, 1, HIP_DEFLECTION, -HIP_DEFLECTION);
     // legs[last_leg]->knee_angle = mapf(ride_angle, MIN_RIDE_ANGLE, MAX_RIDE_ANGLE, -KNEE_DEFLECTION, KNEE_DEFLECTION);
     // legs[last_leg]->ankle_angle = mapf(fb, -1, 1, -ANKLE_DEFLECTION, ANKLE_DEFLECTION);
-    legs[last_leg]->hip_angle = constrain(
-        legs[last_leg]->hip_angle + mapf(dhip, -1, 1, -HIP_DEFLECTION/2, HIP_DEFLECTION/2),
-        -HIP_DEFLECTION, HIP_DEFLECTION);
-    legs[last_leg]->knee_angle = constrain(
-        legs[last_leg]->knee_angle + mapf(dknee, -1, 1, -KNEE_DEFLECTION/2, KNEE_DEFLECTION/2),
-        -KNEE_DEFLECTION, KNEE_DEFLECTION);
-    legs[last_leg]->ankle_angle = constrain(
-        legs[last_leg]->ankle_angle + mapf(dankle, -1, 1, -ANKLE_DEFLECTION/2, ANKLE_DEFLECTION/2),
-        -ANKLE_DEFLECTION, ANKLE_DEFLECTION);
-    // angles_to_xyz(legs[last_leg]);
-    // legs[last_leg]->y += mapf(lr, -1, 1, -STEP_SIZE/2, STEP_SIZE/2);
-    // legs[last_leg]->z += mapf(ride_angle, MIN_RIDE_ANGLE, MAX_RIDE_ANGLE, -STEP_SIZE/2, STEP_SIZE/2);
-    // legs[last_leg]->x += mapf(fb, -1, 1, -STEP_SIZE/2, STEP_SIZE/2);
-    // xyz_to_angles(legs[last_leg]);
+    // legs[last_leg]->hip_angle = constrain(
+    //     legs[last_leg]->hip_angle + mapf(dhip, -1, 1, -HIP_DEFLECTION/2, HIP_DEFLECTION/2),
+    //     -HIP_DEFLECTION, HIP_DEFLECTION);
+    // legs[last_leg]->knee_angle = constrain(
+    //     legs[last_leg]->knee_angle + mapf(dknee, -1, 1, -KNEE_DEFLECTION/2, KNEE_DEFLECTION/2),
+    //     -KNEE_DEFLECTION, KNEE_DEFLECTION);
+    // legs[last_leg]->ankle_angle = constrain(
+    //     legs[last_leg]->ankle_angle + mapf(dankle, -1, 1, -ANKLE_DEFLECTION/2, ANKLE_DEFLECTION/2),
+    //     -ANKLE_DEFLECTION, ANKLE_DEFLECTION);
+    angles_to_xyz(legs[last_leg]);
+    legs[last_leg]->y += mapf(dhip, -1, 1, -STEP_SIZE/2, STEP_SIZE/2);
+    legs[last_leg]->z += mapf(dknee, MIN_RIDE_ANGLE, MAX_RIDE_ANGLE, -STEP_SIZE/2, STEP_SIZE/2);
+    legs[last_leg]->x += mapf(dankle, -1, 1, -STEP_SIZE/2, STEP_SIZE/2);
+    xyz_to_angles(legs[last_leg]);
 
     smooth_move_leg(legs[last_leg], STEP_DURATION);
 }
@@ -483,6 +516,31 @@ void setup() {
     digitalWrite(PCA_ENABLE_PIN, LOW);
     delay(500);
     retract(leg_ptr);
+    walk_mode = 1;
+    delay(500);
+    legs[0].knee_angle = 0;
+    legs[0].ankle_angle = 0;
+    while (within_rom(leg_ptr[0])) {
+        angles_to_xyz(leg_ptr[0]);
+        legs[0].z -= 30;
+        // legs[0].y -= 10;
+        xyz_to_angles(leg_ptr[0]);
+        smooth_move_leg(leg_ptr[0], STEP_DURATION);
+        delay(500);
+    }
+    retract(leg_ptr);
+    // // Serial.println("a->xyz");
+    // angles_to_xyz(leg_ptr[0]);
+    // // print_leg(leg_ptr[0]);
+    // // Serial.println("xyz->a");
+    // xyz_to_angles(leg_ptr[0]);
+    // // print_leg(leg_ptr[0]);
+    // // Serial.println("a->xyz");
+    // angles_to_xyz(leg_ptr[0]);
+    // // print_leg(leg_ptr[0]);
+    // // Serial.println("xyz->a");
+    // xyz_to_angles(leg_ptr[0]);
+    // print_leg(leg_ptr[0]);
     beeps(3);
     delay(500);
     // digitalWrite(PCA_ENABLE_PIN, HIGH);

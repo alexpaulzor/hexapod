@@ -11,7 +11,7 @@
 #define HIP_DZ 0
 #define LEG_L 145
 #define FOOT_L 133
-#define ANKLE_BIAS 24  // degrees from straight
+#define ANKLE_BIAS 90  // degrees from straight
 
 // Software limits
 #define HIP_DEFLECTION 45
@@ -19,7 +19,7 @@
 #define ANKLE_DEFLECTION 90
 #define STEP_SIZE 50	   // mm to move at full speed
 #define MIN_STEP_SIZE 5
-#define STEP_DURATION 250  // ms per movement while walking
+#define STEP_DURATION 500  // 250  // ms per movement while walking
 #define INTERVAL_MS 5
 #define HIP_INVERT_RATIO (-0.7)  // when walking and ROM is hit, invert hip angle by this coefficient
 
