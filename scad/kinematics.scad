@@ -2,10 +2,10 @@
 
 BODY_PIVOT_R = 188;
 HIP_L = 80;
-LEG_L = 145;
+LEG_L = 522; // 145;
 FOOT_L = 133;
 
-ankle_bias = 90; // 90 - 24; // from perpendicular
+ankle_bias = 28.8; // 90 - 24; // from perpendicular
 
 
 // r=240.00;
@@ -21,20 +21,20 @@ r=0.00;
 // y=88.88;
 // z=-69.54;
 hip=20;
-knee=-30;
-ankle=70;
+knee=-50;
+ankle=20;
 
 function angles_to_x(r, h, k, a) = 
     BODY_PIVOT_R * cos(r) +
-    HIP_L * cos(h) +
-    LEG_L * cos(k) * cos(h) +
-    FOOT_L * cos(k + a + ankle_bias) * cos(h);
+    HIP_L * cos(r + h) +
+    LEG_L * cos(k) * cos(r + h) +
+    FOOT_L * cos(k + a + ankle_bias) * cos(r + h);
 
 function angles_to_y(r, h, k, a) = 
     BODY_PIVOT_R * sin(r) +
-    HIP_L * sin(h) +
-    LEG_L * cos(k) * sin(h) +
-    FOOT_L * cos(k + a + ankle_bias) * sin(h);
+    HIP_L * sin(r + h) +
+    LEG_L * cos(k) * sin(r + h) +
+    FOOT_L * cos(k + a + ankle_bias) * sin(r + h);
 
 function angles_to_z(r, h, k, a) = 
     -LEG_L * sin(k) +
@@ -74,8 +74,6 @@ module angles_to_xyz(r=r, hip=hip, knee=knee, ankle=ankle) {
         cube(8, center=true);
 }
 
-angles_to_xyz(r, hip, knee, ankle);
-
 
 module xyz_to_angles(r, x, y, z) {
     translate([x, y, z]) {
@@ -112,6 +110,11 @@ module xyz_to_angles(r, x, y, z) {
     hip_foot_angle = -asin(dz / leg_foot_ext);
 
     /*
+    (knee - hfa) + ankle_prime + toe_angle = 180;
+    
+    */
+
+    /*
 	180 = 2 * (hip_foot_angle - knee_angle) + ankle
 	(180 - ankle) / 2 = hip_foot_angle - knee_angle
 	knee_angle = hip_foot_angle - (180 - ankle)/2
@@ -121,6 +124,9 @@ module xyz_to_angles(r, x, y, z) {
             hip_foot_angle - 90 + ankle_prime/2,
             -90), 90);
     // knee_angle = (ankle/2 - hip_foot_angle);
+
+
+
 
     // ankle_angle = min(90, max(-90, ankle + ankle_bias));
     ankle_angle = 180 - ankle_prime - ankle_bias;
@@ -161,8 +167,11 @@ module xyz_to_angles(r, x, y, z) {
     }
 }
 
-xyz_to_angles(
+for (r=[0:60:300]) {
+    angles_to_xyz(r, hip, knee, ankle);
+    xyz_to_angles(
         r=r,
         x=angles_to_x(r, hip, knee, ankle),
         y=angles_to_y(r, hip, knee, ankle),
         z=angles_to_z(r, hip, knee, ankle));
+}

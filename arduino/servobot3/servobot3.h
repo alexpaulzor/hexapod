@@ -11,7 +11,7 @@
 #define HIP_DZ 0
 #define LEG_L 145
 #define FOOT_L 133
-#define ANKLE_BIAS 90  // degrees from straight
+#define ANKLE_BIAS (28.8 - 90)  // degrees from straight, 2 teeth on 25T shaft
 
 // Software limits
 #define HIP_DEFLECTION 45
@@ -19,11 +19,11 @@
 #define ANKLE_DEFLECTION 90
 #define STEP_SIZE 50	   // mm to move at full speed
 #define MIN_STEP_SIZE 5
-#define STEP_DURATION 500  // 250  // ms per movement while walking
+#define STEP_DURATION 300  // 250  // ms per movement while walking
 #define INTERVAL_MS 5
 #define HIP_INVERT_RATIO (-0.7)  // when walking and ROM is hit, invert hip angle by this coefficient
 
-#define MIN_RIDE_ANGLE 45
+#define MIN_RIDE_ANGLE 30
 #define MAX_RIDE_ANGLE -60
 // #define ANKLE_ACTIVE_ANGLE 22.5
 

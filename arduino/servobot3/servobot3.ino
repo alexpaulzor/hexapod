@@ -76,7 +76,8 @@ void print_leg(t_leg_pos * leg) {
         ", z=" + String(leg->z) +
         ", hip=" + String(leg->hip_angle) +
         ", knee=" + String(leg->knee_angle) +
-        ", ankle=" + String(leg->ankle_angle));
+        ", ankle=" + String(leg->ankle_angle) +
+        ", a'=" + String(leg->ankle_angle + ANKLE_BIAS + 180));
 }
 
 void xyz_to_angles(t_leg_pos * leg) {
@@ -119,24 +120,52 @@ void xyz_to_angles(t_leg_pos * leg) {
         ankle_prime = acos(loc_top / loc_bottom) * RAD2DEG;
     }
 
-    float ankle = 180 - ankle_prime - ANKLE_BIAS;
+    if (ankle_prime < ANKLE_BIAS || ankle_prime > 180) {
+        Serial.println("ankle_prime raw = " + String(ankle_prime));
+        print_leg(leg);
+    }
+    // ankle_prime = constrain(ankle_prime, ANKLE_BIAS, 180);
+
+    float hip_foot_angle = asin(dz / leg_foot_ext) * RAD2DEG;
+
+    float knee_prime = asin(FOOT_L * sin(ankle_prime * DEG2RAD) / leg_foot_ext) * RAD2DEG;
+
+    // a->xyz: r=0.00, x=536.66, y=0.00, z=64.80, hip=0.00, knee=4.08, ankle=-64.08
+    // ankle_prime=134.89; ankle=16.31; hfa=-14.00; raw_knee=-36.56
+    // xyz->a: r=0.00, x=527.86, y=0.00, z=64.80, hip=0.00, knee=-36.56, ankle=16.31
+
+    float ankle = ankle_prime - 180 - ANKLE_BIAS;
     // Serial.println(
     //     "ankle_prime=" + String(ankle_prime) +
     //     "; ankle=" + String(ankle));
 
-    float hip_foot_angle = -asin(dz / leg_foot_ext) * RAD2DEG;
-
-    float knee = hip_foot_angle - 90 + ankle_prime/2.0;
-
+    
     // Serial.println(
     //     "hfa=" + String(hip_foot_angle) +
     //     "; raw_knee=" + String(raw_knee));
     leg->ankle_angle = constrain(ankle, -90, 90);
-    leg->knee_angle = constrain(knee, -90, 90);
+    leg->knee_angle = constrain(hip_foot_angle + knee_prime, -90, 90);
+
+    float toe_angle = asin(LEG_L * sin(ankle_prime * DEG2RAD) / leg_foot_ext) * RAD2DEG;
     
     // if (walk_mode != STEP_MODE_GROUP && leg->rotation == 0) {
-        // Serial.println("xyz->a");
-        // print_leg(leg);
+       // if (leg->rotation == 0) {
+        Serial.println(
+            "xyz->a: ankle_prime=" + String(ankle_prime) +
+            "; ankle=" + String(ankle) +
+            "; hfa=" + String(hip_foot_angle) +
+            "; knee_prime=" + String(knee_prime) + 
+            "; lfe=" + String(leg_foot_ext) +
+            "; loc_top=" + String(loc_top) +
+            "; loc_bottom=" + String(loc_bottom) +
+            "; dx=" + String(dx) +
+            "; dy=" + String(dy) +
+            "; dz=" + String(dz) +
+            "; toe=" + String(toe_angle) +
+            "; ap+kp+t=" + String(toe_angle + ankle_prime + knee_prime));
+            
+        Serial.print("xyz->a: ");
+        print_leg(leg);
     // }
 }
 
@@ -146,22 +175,30 @@ void angles_to_xyz(t_leg_pos * leg) {
     leg->y = BODY_PIVOT_R * sin(DEG2RAD * (leg->rotation));
     leg->z = HIP_DZ;
 
-    float extension_x = (
+    float extension_horiz = (
         HIP_L + 
         LEG_L * cos(DEG2RAD * (leg->knee_angle)) +
         FOOT_L * cos(DEG2RAD * (leg->knee_angle + (leg->ankle_angle + ANKLE_BIAS))));
 
-    float extension_z = (
+    float extension_vert = (
         LEG_L * sin(DEG2RAD * (leg->knee_angle)) +
         FOOT_L * sin(DEG2RAD * (leg->knee_angle + (leg->ankle_angle + ANKLE_BIAS))));
 
-    leg->x += extension_x * cos(DEG2RAD * (leg->rotation + leg->hip_angle));
-    leg->y += extension_x * sin(DEG2RAD * (leg->rotation + leg->hip_angle));
-    leg->z += extension_z;
+    float dx = extension_horiz * cos(DEG2RAD * (leg->rotation + leg->hip_angle));
+    float dy = extension_horiz * sin(DEG2RAD * (leg->rotation + leg->hip_angle));
+    leg->x += dx;
+    leg->y += dy;
+    leg->z += extension_vert;
     
     // if (walk_mode != STEP_MODE_GROUP && leg->rotation == 0) {
-        // Serial.println("a->xyz");
-        // print_leg(leg);
+    // if (leg->rotation == 0) {
+        Serial.println(
+            "a->xyz: extension_horiz=" + String(extension_horiz) +
+            "; extension_vert=" + String(extension_vert) +
+            "; dx=" + String(dx) +
+            "; dy=" + String(dy));
+        Serial.print("a->xyz: ");
+        print_leg(leg);
     // }
 }
 
@@ -292,9 +329,14 @@ float get_ankle_angle(float knee_angle) {
         -45        | 185 | -45   | 0     | legs 45 deg, feet vertical
         -90        | 200 | -90   | 45   | legs and feet vertical
     */
-    if (knee_angle < ANKLE_BIAS) 
-        return mapf(knee_angle, ANKLE_BIAS, MAX_RIDE_ANGLE, -ANKLE_DEFLECTION, ANKLE_BIAS);
-    return -ANKLE_DEFLECTION;
+    float ride_rom = (MIN_RIDE_ANGLE - MAX_RIDE_ANGLE);
+    if (knee_angle > abs(MIN_RIDE_ANGLE)) 
+        return -ANKLE_DEFLECTION;
+    return constrain(
+        mapf(knee_angle, 
+            MIN_RIDE_ANGLE, MAX_RIDE_ANGLE, 
+            -ANKLE_DEFLECTION, -ANKLE_DEFLECTION + ride_rom),
+        -ANKLE_DEFLECTION, ANKLE_DEFLECTION);
 }
 
 void stand(t_leg_pos * legs[NUM_LEGS], float ride_angle) {
@@ -514,19 +556,19 @@ void setup() {
     digitalWrite(PCA_ENABLE_PIN, LOW);
     delay(500);
     retract(leg_ptr);
-    walk_mode = 1;
-    delay(500);
-    legs[0].knee_angle = 0;
-    legs[0].ankle_angle = 0;
-    while (within_rom(leg_ptr[0])) {
-        angles_to_xyz(leg_ptr[0]);
-        legs[0].z -= 30;
-        // legs[0].y -= 10;
-        xyz_to_angles(leg_ptr[0]);
-        smooth_move_leg(leg_ptr[0], STEP_DURATION);
-        delay(500);
-    }
-    retract(leg_ptr);
+    // walk_mode = 1;
+    // delay(500);
+    // legs[0].knee_angle = 0;
+    // legs[0].ankle_angle = 0;
+    // while (within_rom(leg_ptr[0])) {
+    //     angles_to_xyz(leg_ptr[0]);
+    //     legs[0].z -= 30;
+    //     // legs[0].y -= 10;
+    //     xyz_to_angles(leg_ptr[0]);
+    //     smooth_move_leg(leg_ptr[0], STEP_DURATION);
+    //     delay(500);
+    // }
+    // retract(leg_ptr);
     // // Serial.println("a->xyz");
     // angles_to_xyz(leg_ptr[0]);
     // // print_leg(leg_ptr[0]);
@@ -539,8 +581,15 @@ void setup() {
     // // Serial.println("xyz->a");
     // xyz_to_angles(leg_ptr[0]);
     // print_leg(leg_ptr[0]);
-    beeps(3);
-    delay(500);
+    // beeps(3);
+    // delay(500);
+    // stand(leg_ptr, MIN_RIDE_ANGLE);
+    angles_to_xyz(leg_ptr[0]);
+    xyz_to_angles(leg_ptr[0]);
+    angles_to_xyz(leg_ptr[0]);
+    xyz_to_angles(leg_ptr[0]);
+    angles_to_xyz(leg_ptr[0]);
+    xyz_to_angles(leg_ptr[0]);
     // digitalWrite(PCA_ENABLE_PIN, HIGH);
 }
 
