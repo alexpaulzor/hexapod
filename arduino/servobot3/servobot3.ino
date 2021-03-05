@@ -150,22 +150,22 @@ void xyz_to_angles(t_leg_pos * leg) {
     
     // if (walk_mode != STEP_MODE_GROUP && leg->rotation == 0) {
        // if (leg->rotation == 0) {
-        Serial.println(
-            "xyz->a: ankle_prime=" + String(ankle_prime) +
-            "; ankle=" + String(ankle) +
-            "; hfa=" + String(hip_foot_angle) +
-            "; knee_prime=" + String(knee_prime) + 
-            "; lfe=" + String(leg_foot_ext) +
-            "; loc_top=" + String(loc_top) +
-            "; loc_bottom=" + String(loc_bottom) +
-            "; dx=" + String(dx) +
-            "; dy=" + String(dy) +
-            "; dz=" + String(dz) +
-            "; toe=" + String(toe_angle) +
-            "; ap+kp+t=" + String(toe_angle + ankle_prime + knee_prime));
+        // Serial.println(
+        //     "xyz->a: ankle_prime=" + String(ankle_prime) +
+        //     "; ankle=" + String(ankle) +
+        //     "; hfa=" + String(hip_foot_angle) +
+        //     "; knee_prime=" + String(knee_prime) + 
+        //     "; lfe=" + String(leg_foot_ext) +
+        //     "; loc_top=" + String(loc_top) +
+        //     "; loc_bottom=" + String(loc_bottom) +
+        //     "; dx=" + String(dx) +
+        //     "; dy=" + String(dy) +
+        //     "; dz=" + String(dz) +
+        //     "; toe=" + String(toe_angle) +
+        //     "; ap+kp+t=" + String(toe_angle + ankle_prime + knee_prime));
             
-        Serial.print("xyz->a: ");
-        print_leg(leg);
+        // Serial.print("xyz->a: ");
+        // print_leg(leg);
     // }
 }
 
@@ -192,13 +192,13 @@ void angles_to_xyz(t_leg_pos * leg) {
     
     // if (walk_mode != STEP_MODE_GROUP && leg->rotation == 0) {
     // if (leg->rotation == 0) {
-        Serial.println(
-            "a->xyz: extension_horiz=" + String(extension_horiz) +
-            "; extension_vert=" + String(extension_vert) +
-            "; dx=" + String(dx) +
-            "; dy=" + String(dy));
-        Serial.print("a->xyz: ");
-        print_leg(leg);
+        // Serial.println(
+        //     "a->xyz: extension_horiz=" + String(extension_horiz) +
+        //     "; extension_vert=" + String(extension_vert) +
+        //     "; dx=" + String(dx) +
+        //     "; dy=" + String(dy));
+        // Serial.print("a->xyz: ");
+        // print_leg(leg);
     // }
 }
 
@@ -581,15 +581,15 @@ void setup() {
     // // Serial.println("xyz->a");
     // xyz_to_angles(leg_ptr[0]);
     // print_leg(leg_ptr[0]);
-    // beeps(3);
-    // delay(500);
-    // stand(leg_ptr, MIN_RIDE_ANGLE);
-    angles_to_xyz(leg_ptr[0]);
-    xyz_to_angles(leg_ptr[0]);
-    angles_to_xyz(leg_ptr[0]);
-    xyz_to_angles(leg_ptr[0]);
-    angles_to_xyz(leg_ptr[0]);
-    xyz_to_angles(leg_ptr[0]);
+    beeps(3);
+    delay(500);
+    stand(leg_ptr, MIN_RIDE_ANGLE);
+    // angles_to_xyz(leg_ptr[0]);
+    // xyz_to_angles(leg_ptr[0]);
+    // angles_to_xyz(leg_ptr[0]);
+    // xyz_to_angles(leg_ptr[0]);
+    // angles_to_xyz(leg_ptr[0]);
+    // xyz_to_angles(leg_ptr[0]);
     // digitalWrite(PCA_ENABLE_PIN, HIGH);
 }
 
